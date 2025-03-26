@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased text-gray-900;
+  }
+}
+
+@layer components {
+  .stat-card {
+    @apply bg-white rounded-lg shadow-sm p-4;
+  }
+  
+  .stat-value {
+    @apply text-2xl font-semibold;
+  }
+  
+  .stat-label {
+    @apply text-sm text-gray-600;
+  }
+}
