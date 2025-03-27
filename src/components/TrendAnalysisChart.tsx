@@ -1,4 +1,14 @@
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  TooltipProps 
+} from 'recharts';
+import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 
 interface TrendData {
   range: string;
@@ -11,7 +21,7 @@ interface TrendAnalysisProps {
 }
 
 // Custom tooltip component to display both claim count and average days
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
   if (active && payload && payload.length) {
     const count = payload[0].value;
     const avgDays = payload[0].payload.avgDays || 0;
@@ -54,7 +64,15 @@ export function TrendAnalysisChart({ data }: TrendAnalysisProps) {
       <h2 className="text-lg font-medium text-gray-900 mb-6">Historic Trend Analysis</h2>
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
+          <AreaChart
+            data={chartData}
+            margin={{
+              top: 10,
+              right: 30,
+              left: 0,
+              bottom: 0,
+            }}
+          >
             <defs>
               <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8}/>
@@ -62,10 +80,7 @@ export function TrendAnalysisChart({ data }: TrendAnalysisProps) {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="range" 
-              tick={{ fontSize: 12 }}
-            />
+            <XAxis dataKey="range" tick={{ fontSize: 12 }} />
             <YAxis />
             <Tooltip content={<CustomTooltip />} />
             <Area
