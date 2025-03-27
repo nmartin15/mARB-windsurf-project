@@ -1,30 +1,63 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-interface MetricCardProps {
+export interface MetricCardProps {
   title: string;
   value: string;
-  subtitle?: string;
-  type: 'paid' | 'receivables' | 'negotiation' | 'unpaid';
+  icon?: JSX.Element;
+  trend?: string;
+  trendUp?: boolean;
+  loading?: boolean;
+  type?: 'paid' | 'receivables' | 'negotiation' | 'unpaid';
 }
 
-export function MetricCard({ title, value, subtitle, type }: MetricCardProps) {
+export function MetricCard({ 
+  title, 
+  value, 
+  icon, 
+  trend, 
+  trendUp = true, 
+  loading = false,
+  type 
+}: MetricCardProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/claims/${type}`);
+    if (type) {
+      navigate(`/claims/${type}`);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6 animate-pulse">
+        <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+        <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+      </div>
+    );
+  }
 
   return (
     <div 
-      className="bg-white rounded-lg shadow-sm p-6 cursor-pointer transition-all hover:shadow-md"
-      onClick={handleClick}
+      className={`bg-white rounded-lg shadow-sm p-6 ${type ? 'cursor-pointer transition-all hover:shadow-md' : ''}`}
+      onClick={type ? handleClick : undefined}
     >
-      <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-      <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
-      {subtitle && (
-        <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
-      )}
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="text-sm font-medium text-gray-500">{title}</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
+          {trend && (
+            <p className={`mt-1 text-sm font-medium ${trendUp ? 'text-green-600' : 'text-red-600'}`}>
+              {trend} {trendUp ? '↑' : '↓'}
+            </p>
+          )}
+        </div>
+        {icon && (
+          <div className="p-2 rounded-full bg-gray-50">
+            {icon}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
