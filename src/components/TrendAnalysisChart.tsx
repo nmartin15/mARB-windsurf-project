@@ -1,6 +1,4 @@
-import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { parse } from 'date-fns';
 
 interface TrendData {
   range: string;
@@ -32,6 +30,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function TrendAnalysisChart({ data }: TrendAnalysisProps) {
+  // Debug the incoming data
+  console.log('TrendAnalysisChart received data:', data);
+  
   // Check if we have data to display
   if (!data || data.length === 0) {
     return (
@@ -44,31 +45,16 @@ export function TrendAnalysisChart({ data }: TrendAnalysisProps) {
     );
   }
 
-  // Sort data to ensure it's in sequential order by date
-  const sortedData = [...data].sort((a, b) => {
-    try {
-      // Parse month-year format (e.g., "Jan 2023") correctly
-      const aDate = parse(a.range, 'MMM yyyy', new Date());
-      const bDate = parse(b.range, 'MMM yyyy', new Date());
-      
-      // If both are valid dates, compare them
-      if (!isNaN(aDate.getTime()) && !isNaN(bDate.getTime())) {
-        return aDate.getTime() - bDate.getTime();
-      }
-    } catch (error) {
-      console.error('Error parsing date:', error);
-    }
-    
-    // Fallback to string comparison if date parsing fails
-    return a.range.localeCompare(b.range);
-  });
+  // Use the data as is - we're already sorting it in the Dashboard component
+  const chartData = [...data];
+  console.log('Chart data after preparation:', chartData);
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h2 className="text-lg font-medium text-gray-900 mb-6">Historic Trend Analysis</h2>
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={sortedData}>
+          <AreaChart data={chartData}>
             <defs>
               <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8}/>
