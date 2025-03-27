@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { MetricCard } from '../components/MetricCard';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { PaymentVelocityChart } from '../components/PaymentVelocityChart';
 import { TrendAnalysisChart } from '../components/TrendAnalysisChart';
+import { FilingIndicatorChart } from '../components/FilingIndicatorChart';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../utils/format';
 import { getCategoryForIndicator } from '../utils/claims';
-import { format, subMonths, startOfMonth, subDays, startOfYear } from 'date-fns';
+import { format, subMonths, subDays, startOfYear, parse } from 'date-fns';
 import type { HealthcareClaim } from '../types';
+import { FileText, DollarSign, TrendingUp, Filter } from 'lucide-react';
+import { FILING_INDICATOR_MAP } from '../utils/claims';
 
 /**
  * Summary data for each filing indicator category
@@ -25,7 +27,7 @@ interface FilingIndicatorSummary {
 /**
  * Main dashboard data structure
  */
-interface DashboardData {
+type DashboardData = {
   totalAmount: number;
   avgClaimAmount: number;
   totalClaims: number;
@@ -48,16 +50,8 @@ interface VelocityData {
 interface TrendData {
   range: string;
   count: number;
+  avgDays?: number;
 }
-
-// Colors for the filing indicator chart
-const GRADIENTS = [
-  ['#22c55e', '#15803d'], // Green
-  ['#3b82f6', '#1d4ed8'], // Blue
-  ['#f59e0b', '#b45309'], // Amber
-  ['#ec4899', '#be185d'], // Pink
-  ['#8b5cf6', '#6d28d9'], // Purple
-];
 
 /**
  * Dashboard component - displays overview metrics, charts, and recent claims
@@ -69,17 +63,18 @@ export function Dashboard() {
     totalAmount: 0,
     avgClaimAmount: 0,
     totalClaims: 0,
-    filingIndicators: [],
-    recentClaims: []
+    filingIndicators: [] as FilingIndicatorSummary[],
+    recentClaims: [] as HealthcareClaim[]
   });
-  const [velocityData, setVelocityData] = useState<VelocityData[]>([]);
-  const [trendData, setTrendData] = useState<TrendData[]>([]);
+  const [velocityData, setVelocityData] = useState<Array<VelocityData>>([]);
+  const [trendData, setTrendData] = useState<Array<TrendData>>([]);
   const [selectedPeriod, setSelectedPeriod] = useState('1M');
+  const [filterOpen, setFilterOpen] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
     fetchVelocityData(selectedPeriod);
-    fetchTrendData();
+    fetchTrendData(selectedPeriod);
   }, [selectedPeriod]);
 
   /**
@@ -262,152 +257,259 @@ export function Dashboard() {
   }
 
   /**
-   * Fetches trend analysis data for claims over time
+   * Fetches trend data for the selected period
    */
-  async function fetchTrendData() {
+  const fetchTrendData = async (period: string) => {
     try {
-      const { data: claims, error } = await supabase
-        .from('healthcare_claims')
-        .select('created_at')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      if (!claims || claims.length === 0) {
-        setTrendData([]);
-        return;
+      // Get the start date based on the selected period
+      const endDate = new Date();
+      let startDate = new Date();
+      
+      if (period === '1M') {
+        startDate = subMonths(endDate, 1);
+      } else if (period === '3M') {
+        startDate = subMonths(endDate, 3);
+      } else if (period === '6M') {
+        startDate = subMonths(endDate, 6);
+      } else if (period === 'YTD') {
+        startDate = startOfYear(endDate);
+      } else if (period === '1Y') {
+        startDate = subMonths(endDate, 12);
       }
-
-      // Group claims by time periods for trend analysis
-      const trendData = calculateTrendData(claims);
-      setTrendData(trendData);
+      
+      // Format dates for the query
+      const startDateStr = format(startDate, 'yyyy-MM-dd');
+      const endDateStr = format(endDate, 'yyyy-MM-dd');
+      
+      // Get monthly data for the trend analysis
+      const { data: monthlyData, error: monthlyError } = await supabase
+        .from('healthcare_claims')
+        .select('service_date_start, total_claim_charge_amount')
+        .gte('service_date_start', startDateStr)
+        .lte('service_date_start', endDateStr);
+      
+      if (monthlyError) throw monthlyError;
+      
+      // Process the data to get monthly counts and average days
+      const monthlyStats: Record<string, { count: number, totalDays: number }> = {};
+      
+      monthlyData?.forEach(claim => {
+        if (!claim.service_date_start) return;
+        
+        // Extract month and year (e.g., "Jan 2023")
+        const date = new Date(claim.service_date_start);
+        const monthYear = format(date, 'MMM yyyy');
+        
+        // Calculate days since service date
+        const daysSince = Math.round((endDate.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (!monthlyStats[monthYear]) {
+          monthlyStats[monthYear] = { count: 0, totalDays: 0 };
+        }
+        
+        monthlyStats[monthYear].count += 1;
+        monthlyStats[monthYear].totalDays += daysSince;
+      });
+      
+      // Convert to array and calculate average days
+      const trendDataArray = Object.entries(monthlyStats).map(([range, stats]) => ({
+        range,
+        count: stats.count,
+        avgDays: Math.round(stats.totalDays / stats.count)
+      }));
+      
+      // Sort by date
+      trendDataArray.sort((a, b) => {
+        try {
+          // Parse the month-year format correctly using date-fns
+          const dateA = parse(a.range, 'MMM yyyy', new Date());
+          const dateB = parse(b.range, 'MMM yyyy', new Date());
+          
+          if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+            return dateA.getTime() - dateB.getTime();
+          }
+        } catch (error) {
+          console.error('Error parsing dates for sorting:', error);
+        }
+        
+        // Fallback to string comparison
+        return a.range.localeCompare(b.range);
+      });
+      
+      console.log('Trend data after sorting:', trendDataArray);
+      setTrendData(trendDataArray);
     } catch (error) {
       console.error('Error fetching trend data:', error);
     }
-  }
+  };
 
   /**
-   * Calculates trend data by grouping claims into time periods
+   * Handles period selection for data filtering
    */
-  function calculateTrendData(claims: any[]): TrendData[] {
-    // Get the earliest and latest dates
-    const dates = claims.map(claim => new Date(claim.created_at));
-    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
-    
-    // Calculate the number of months between the earliest and latest dates
-    const monthDiff = (maxDate.getFullYear() - minDate.getFullYear()) * 12 + maxDate.getMonth() - minDate.getMonth();
-    
-    // Determine the appropriate grouping based on the date range
-    let grouping: 'day' | 'week' | 'month' = 'month';
-    if (monthDiff <= 1) {
-      grouping = 'day';
-    } else if (monthDiff <= 6) {
-      grouping = 'week';
-    }
-    
-    // Group the claims by the determined grouping
-    const groupedData: Record<string, number> = {};
-    
-    claims.forEach(claim => {
-      const date = new Date(claim.created_at);
-      let key: string;
-      
-      if (grouping === 'day') {
-        key = format(date, 'MMM d');
-      } else if (grouping === 'week') {
-        // Get the start of the week (Sunday)
-        const startOfWeek = new Date(date);
-        startOfWeek.setDate(date.getDate() - date.getDay());
-        key = `Week of ${format(startOfWeek, 'MMM d')}`;
-      } else {
-        key = format(date, 'MMM yyyy');
-      }
-      
-      groupedData[key] = (groupedData[key] || 0) + 1;
-    });
-    
-    // Convert to array and sort chronologically
-    return Object.entries(groupedData)
-      .map(([range, count]) => ({ range, count }))
-      .sort((a, b) => {
-        // Simple string comparison works for our format
-        return a.range.localeCompare(b.range);
-      });
-  }
+  const handlePeriodChange = (period: string) => {
+    setSelectedPeriod(period);
+  };
 
-  // Render functions for dashboard components
-  
   /**
-   * Renders the filing indicator chart
+   * Renders the filing indicator chart section
    */
   const renderFilingIndicatorChart = () => (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
+    <div className="bg-white p-6 rounded-lg shadow-sm h-full">
       <h3 className="text-lg font-medium text-gray-900 mb-4">Claims by Filing Indicator</h3>
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={data.filingIndicators}
-            margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="displayName" 
-              angle={-45} 
-              textAnchor="end" 
-              tick={{ fontSize: 12 }}
-              height={60}
-            />
-            <YAxis />
-            <Tooltip 
-              formatter={(value: any, name: string) => {
-                if (name === 'total_amount') return formatCurrency(value);
-                return value;
-              }}
-              labelFormatter={(label) => `Category: ${label}`}
-            />
-            <Bar 
-              dataKey="total_amount" 
-              name="Total Amount" 
-              radius={[4, 4, 0, 0]}
-            >
-              {data.filingIndicators.map((entry, index) => (
-                <Cell 
-                  key={`cell-${index}`} 
-                  fill={`url(#gradient-${index})`} 
-                />
-              ))}
-            </Bar>
-            {/* Define gradients for bars */}
-            <defs>
-              {data.filingIndicators.map((entry, index) => {
-                const colorIndex = index % GRADIENTS.length;
-                const [startColor, endColor] = GRADIENTS[colorIndex];
-                return (
-                  <linearGradient 
-                    key={`gradient-${index}`} 
-                    id={`gradient-${index}`} 
-                    x1="0" y1="0" x2="0" y2="1"
-                  >
-                    <stop offset="0%" stopColor={startColor} stopOpacity={0.8} />
-                    <stop offset="100%" stopColor={endColor} stopOpacity={0.8} />
-                  </linearGradient>
-                );
-              })}
-            </defs>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <FilingIndicatorChart data={data.filingIndicators} />
     </div>
   );
 
+  /**
+   * Renders the payment velocity chart section
+   */
+  const renderPaymentVelocityChart = () => (
+    <div className="bg-white p-6 rounded-lg shadow-sm h-full">
+      <PaymentVelocityChart 
+        data={velocityData} 
+        onPeriodChange={handlePeriodChange} 
+      />
+    </div>
+  );
+
+  /**
+   * Renders the recent claims table
+   */
+  const renderRecentClaimsTable = () => (
+    <div className="bg-white p-6 rounded-lg shadow-sm">
+      <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Claims</h3>
+      {loading ? (
+        <div className="text-center py-4">Loading claims...</div>
+      ) : data.recentClaims.length === 0 ? (
+        <div className="text-center py-4 text-gray-500">No claims found</div>
+      ) : (
+        <div className="overflow-x-auto -mx-6">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Claim ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Facility
+                </th>
+                <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {data.recentClaims.map((claim) => (
+                <tr 
+                  key={claim.claim_id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => navigate(`/claims/detail/${claim.claim_id}`)}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {claim.claim_id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {claim.facility_type_desc || 'N/A'}
+                  </td>
+                  <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {claim.service_date_start || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatCurrency(claim.total_claim_charge_amount)}
+                  </td>
+                  <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                      {claim.claim_frequency_type_desc || 'Processing'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {data.recentClaims.length > 0 && (
+        <div className="mt-4 text-right">
+          <button
+            onClick={() => navigate('/claims')}
+            className="text-sm font-medium text-green-600 hover:text-green-500"
+          >
+            View all claims
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  /**
+   * Renders the main dashboard content
+   */
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <div className="space-y-6 px-4 sm:px-6 pb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          
+          {/* Filter button for mobile */}
+          <button 
+            className="mt-2 sm:mt-0 flex items-center gap-1 px-3 py-1.5 bg-white border rounded-md shadow-sm text-sm text-gray-700 hover:bg-gray-50 md:hidden"
+            onClick={() => setFilterOpen(!filterOpen)}
+          >
+            <Filter className="h-4 w-4" />
+            <span>Filters</span>
+          </button>
+          
+          {/* Desktop filters */}
+          <div className="hidden md:flex items-center gap-2">
+            {['1M', '3M', 'YTD'].map((period) => (
+              <button
+                key={period}
+                onClick={() => handlePeriodChange(period)}
+                className={`px-3 py-1.5 text-sm rounded-md ${
+                  selectedPeriod === period
+                    ? 'bg-green-100 text-green-800 font-medium'
+                    : 'bg-white border text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {period}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Mobile filters - collapsible */}
+        {filterOpen && (
+          <div className="bg-white p-4 rounded-lg shadow-sm md:hidden">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Filter by period</h3>
+            <div className="flex flex-wrap gap-2">
+              {['1D', '1W', '1M', '3M', 'YTD'].map((period) => (
+                <button
+                  key={period}
+                  onClick={() => {
+                    handlePeriodChange(period);
+                    setFilterOpen(false);
+                  }}
+                  className={`px-3 py-1.5 text-sm rounded-md ${
+                    selectedPeriod === period
+                      ? 'bg-green-100 text-green-800 font-medium'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {period}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* Top metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <MetricCard 
             title="Total Claims" 
             value={data.totalClaims.toString()} 
@@ -429,30 +531,9 @@ export function Dashboard() {
         </div>
         
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {renderFilingIndicatorChart()}
-          
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Payment Velocity</h3>
-              <div className="flex space-x-2">
-                {['1M', '3M', 'YTD'].map((period) => (
-                  <button
-                    key={period}
-                    onClick={() => setSelectedPeriod(period)}
-                    className={`px-3 py-1 text-xs rounded-full ${
-                      selectedPeriod === period
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {period}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <PaymentVelocityChart data={velocityData} />
-          </div>
+          {renderPaymentVelocityChart()}
         </div>
         
         {/* Trend Analysis */}
@@ -462,80 +543,8 @@ export function Dashboard() {
         </div>
         
         {/* Recent Claims */}
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Claims</h3>
-          {loading ? (
-            <div className="text-center py-4">Loading claims...</div>
-          ) : data.recentClaims.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">No claims found</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Claim ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Facility
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {data.recentClaims.map((claim) => (
-                    <tr 
-                      key={claim.claim_id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => navigate(`/claims/detail/${claim.claim_id}`)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {claim.claim_id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {claim.facility_type_desc || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {claim.service_date_start || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatCurrency(claim.total_claim_charge_amount)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {claim.claim_frequency_type_desc || 'Processing'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {data.recentClaims.length > 0 && (
-            <div className="mt-4 text-right">
-              <button
-                onClick={() => navigate('/claims')}
-                className="text-sm font-medium text-green-600 hover:text-green-500"
-              >
-                View all claims
-              </button>
-            </div>
-          )}
-        </div>
+        {renderRecentClaimsTable()}
       </div>
     </DashboardLayout>
   );
 }
-
-// Missing imports from the original code
-import { FileText, DollarSign, TrendingUp } from 'lucide-react';
-import { FILING_INDICATOR_MAP } from '../utils/claims';
