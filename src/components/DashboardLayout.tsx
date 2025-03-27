@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { Home, LayoutDashboard, FileText, Bell, MessageSquare, LogOut, Scale, Menu, X } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { LogOut, Scale, Menu, X } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { NotificationsPanel } from './NotificationsPanel';
 
 interface DashboardLayoutProps {
-  children: React.ReactNode;
+  children: JSX.Element | JSX.Element[];
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -35,8 +35,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Scale className="h-8 w-8 text-green-500" />
               </div>
               <div className="hidden md:ml-6 md:flex md:space-x-8">
-                <a 
-                  href="/dashboard" 
+                <Link 
+                  to="/dashboard" 
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                     isActivePath('/dashboard')
                       ? 'border-green-500 text-gray-900'
@@ -44,9 +44,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   }`}
                 >
                   Dashboard
-                </a>
-                <a 
-                  href="/claims" 
+                </Link>
+                <Link 
+                  to="/claims" 
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                     isActivePath('/claims')
                       ? 'border-green-500 text-gray-900'
@@ -54,9 +54,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   }`}
                 >
                   Claims
-                </a>
-                <a 
-                  href="/reports" 
+                </Link>
+                <Link 
+                  to="/reports" 
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                     isActivePath('/reports')
                       ? 'border-green-500 text-gray-900'
@@ -64,7 +64,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   }`}
                 >
                   Reports
-                </a>
+                </Link>
               </div>
             </div>
             
@@ -98,8 +98,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:hidden`}>
           <div className="pt-2 pb-3 space-y-1">
-            <a
-              href="/dashboard"
+            <Link
+              to="/dashboard"
               className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
                 isActivePath('/dashboard')
                   ? 'bg-green-50 border-green-500 text-green-700'
@@ -107,9 +107,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               }`}
             >
               Dashboard
-            </a>
-            <a
-              href="/claims"
+            </Link>
+            <Link
+              to="/claims"
               className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
                 isActivePath('/claims')
                   ? 'bg-green-50 border-green-500 text-green-700'
@@ -117,9 +117,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               }`}
             >
               Claims
-            </a>
-            <a
-              href="/reports"
+            </Link>
+            <Link
+              to="/reports"
               className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
                 isActivePath('/reports')
                   ? 'bg-green-50 border-green-500 text-green-700'
@@ -127,7 +127,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               }`}
             >
               Reports
-            </a>
+            </Link>
             <button
               onClick={handleSignOut}
               className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block w-full text-left pl-3 pr-4 py-2 border-l-4 text-base font-medium"
