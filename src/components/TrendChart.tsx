@@ -8,8 +8,8 @@ interface FormattedTrendData {
   date: string;
   amount: number;
   count: number;
-  avgDays: number; // Add avgDays as a data point
-  color: string; // Add color as a data point
+  avgDays: number;
+  color: string;
 }
 
 // Define the possible response data structures
@@ -19,7 +19,7 @@ interface TrendDataResponse {
   avgDays?: number;
   date?: string | Date;
   amount?: number;
-  [key: string]: string | number | boolean | null | undefined | Date; // Specify allowed types for index signature
+  [key: string]: string | number | boolean | null | undefined | Date;
 }
 
 interface TrendChartProps {
@@ -49,6 +49,10 @@ const getAvgDaysFromRange = (range: string): number => {
   return 0; // Default
 };
 
+/**
+ * TrendChart component displays historical trend data for claims processing
+ * with color-coded bars based on processing time ranges
+ */
 export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300 }: TrendChartProps) {
   const [data, setData] = useState<FormattedTrendData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -57,8 +61,6 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
 
   // Fallback to hardcoded data from the SQL function
   const getHardcodedData = () => {
-    console.log('Using hardcoded data from SQL function');
-    
     // This matches the exact data in the get_trend_data function
     const hardcodedData = [
       { range: '0-30', count: 45, avgDays: 15.0 },
@@ -89,37 +91,29 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
       setError(null);
       setDebugInfo(null);
       
-      console.log('Fetching trend data with period:', period);
-      
       // First attempt: Try the RPC call
-      console.log('Attempt 1: Using RPC call');
       const result = await supabase.rpc('get_trend_data', { period });
       
-      // Log the raw result for debugging
-      console.log('Raw trend data result:', JSON.stringify(result, null, 2));
-      setDebugInfo(JSON.stringify(result, null, 2));
+      // Log the raw result for debugging in development only
+      if (process.env.NODE_ENV === 'development') {
+        setDebugInfo(JSON.stringify(result, null, 2));
+      }
       
       // If the RPC call fails, use hardcoded data
       if (result.error) {
-        console.error('RPC call failed:', result.error);
         setError(`Note: Using sample data because the API call failed: ${result.error.message}`);
         getHardcodedData();
         return;
       }
       
-      // Always show the data we're working with
-      console.log('Trend data:', result.data);
-      
       if (result.data && result.data.length > 0) {
         // Try to determine the data structure
         const firstItem = result.data[0] as TrendDataResponse;
-        console.log('First data item:', firstItem);
         
         let formattedData: FormattedTrendData[];
         
         // Check if it matches V1 structure
         if ('date' in firstItem && 'amount' in firstItem && 'count' in firstItem) {
-          console.log('Using V1 structure');
           formattedData = result.data.map((item: TrendDataResponse) => {
             // For V1 structure, estimate avgDays from the amount
             const avgDays = ((item.amount as number) || 0) / 100;
@@ -134,7 +128,6 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
         }
         // Check if it matches V2 structure
         else if ('range' in firstItem && 'count' in firstItem && 'avgDays' in firstItem) {
-          console.log('Using V2 structure');
           formattedData = result.data.map((item: TrendDataResponse) => {
             const avgDays = item.avgDays as number;
             return {
@@ -148,9 +141,11 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
         }
         // Unknown structure - try to adapt
         else {
-          console.log('Unknown data structure, attempting to adapt');
-          // Log the keys we're seeing
-          console.log('Keys in first item:', Object.keys(firstItem));
+          // Try our best to adapt to an unknown structure
+          // Log keys only in development mode
+          if (process.env.NODE_ENV === 'development') {
+            setDebugInfo(prev => `${prev || ''}\nKeys in first item: ${Object.keys(firstItem).join(', ')}`);
+          }
           
           formattedData = result.data.map((item: TrendDataResponse) => {
             const keys = Object.keys(item);
@@ -170,15 +165,12 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
           });
         }
         
-        console.log('Formatted data for chart:', formattedData);
         setData(formattedData);
       } else {
-        console.log('No trend data returned from API, using hardcoded data');
         getHardcodedData();
         setError('No data returned from the API. Showing sample data instead.');
       }
     } catch (error) {
-      console.error('Error in fetchTrendData:', error);
       setError(`An error occurred while fetching trend data: ${error instanceof Error ? error.message : String(error)}`);
       getHardcodedData();
     } finally {
@@ -194,15 +186,15 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
     return <div className="flex justify-center items-center h-64">Loading trend data...</div>;
   }
 
-  // Custom tooltip to show both amount and days
-  interface TooltipProps {
+  // Custom tooltip interface that extends Recharts tooltip props
+  interface CustomTooltipProps {
     active?: boolean;
     payload?: Array<{
       payload: FormattedTrendData;
     }>;
   }
   
-  const CustomTooltip = ({ active, payload }: TooltipProps) => {
+  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
       return (
@@ -241,7 +233,7 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
         </div>
       </div>
       {error && <div className="text-red-500 mb-2">{error}</div>}
-      {debugInfo && (
+      {debugInfo && process.env.NODE_ENV === 'development' && (
         <details className="mb-4 text-xs">
           <summary className="cursor-pointer text-gray-500">Debug Information</summary>
           <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
