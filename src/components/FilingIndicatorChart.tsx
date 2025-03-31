@@ -1,3 +1,4 @@
+import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { formatCurrency } from '../utils/format';
 
@@ -15,8 +16,8 @@ interface FilingIndicatorChartProps {
 
 // Colors for the filing indicator chart
 const GRADIENTS = [
+  ['#3b82f6', '#1d4ed8'], // Blue (primary color)
   ['#22c55e', '#15803d'], // Green
-  ['#3b82f6', '#1d4ed8'], // Blue
   ['#f59e0b', '#b45309'], // Amber
   ['#ec4899', '#be185d'], // Pink
   ['#8b5cf6', '#6d28d9'], // Purple
@@ -47,7 +48,7 @@ export function FilingIndicatorChart({ data }: FilingIndicatorChartProps) {
             tickFormatter={(value) => formatCurrencyWithoutDecimals(value)}
           />
           <Tooltip 
-            formatter={(value: any, name: string) => {
+            formatter={(value: number, name: string) => {
               if (name === 'total_amount') return formatCurrencyWithoutDecimals(value);
               return value;
             }}
