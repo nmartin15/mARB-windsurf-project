@@ -14,18 +14,20 @@ interface ClaimSummary {
 interface Claim {
   id: string;
   claim_id: string;
-  patient_name: string;
+  patient_id: string;
   service_date_start: string;
   total_claim_charge_amount: string | number;
   claim_status: string;
-  payer_name: string;
+  claim_filing_indicator_code: string;
+  claim_filing_indicator_desc: string;
+  billing_code?: string;
 }
 
 interface FilterOptions {
   status: string;
   dateRange: string;
   searchTerm: string;
-  payerName: string;
+  insuranceType: string;
 }
 
 // Type for Supabase query builder - using any for simplicity
@@ -52,7 +54,7 @@ export function ClaimsList() {
     status: 'all',
     dateRange: '30',
     searchTerm: '',
-    payerName: ''
+    insuranceType: ''
   } as FilterOptions);
   
   // Filter visibility state
@@ -167,7 +169,7 @@ export function ClaimsList() {
       // Build query with pagination
       let query: SupabaseQuery = supabase
         .from('healthcare_claims')
-        .select('id, claim_id, patient_name, service_date_start, total_claim_charge_amount, claim_status, payer_name')
+        .select('id, claim_id, patient_id, service_date_start, total_claim_charge_amount, claim_status, claim_filing_indicator_code, claim_filing_indicator_desc, billing_code')
         .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
       
       // Apply filters
@@ -215,28 +217,29 @@ export function ClaimsList() {
   // Helper function to apply filters to a query
   function applyFiltersToQuery(query: SupabaseQuery): SupabaseQuery {
     // Apply status filter
-    if (filters.status && filters.status !== 'all') {
+    if (filters.status !== 'all') {
       query = query.eq('claim_status', filters.status);
     }
     
     // Apply date range filter
-    if (filters.dateRange) {
-      const days = parseInt(filters.dateRange);
-      if (!isNaN(days)) {
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - days);
-        query = query.gte('service_date_start', startDate.toISOString());
+    if (filters.dateRange !== 'all') {
+      const daysAgo = parseInt(filters.dateRange);
+      if (!isNaN(daysAgo)) {
+        const date = new Date();
+        date.setDate(date.getDate() - daysAgo);
+        const formattedDate = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        query = query.gte('service_date_start', formattedDate);
       }
     }
     
-    // Apply search term filter (on claim number or patient name)
+    // Apply search term filter (on claim number or patient ID)
     if (filters.searchTerm) {
-      query = query.or(`claim_id.ilike.%${filters.searchTerm}%,patient_name.ilike.%${filters.searchTerm}%`);
+      query = query.or(`claim_id.ilike.%${filters.searchTerm}%,patient_id.ilike.%${filters.searchTerm}%`);
     }
     
-    // Apply payer filter
-    if (filters.payerName) {
-      query = query.ilike('payer_name', `%${filters.payerName}%`);
+    // Apply insurance type filter (claim filing indicator)
+    if (filters.insuranceType) {
+      query = query.eq('claim_filing_indicator_code', filters.insuranceType);
     }
     
     return query;
@@ -244,18 +247,32 @@ export function ClaimsList() {
   
   // Generate sample claims for fallback
   function generateSampleClaims(): Claim[] {
-    const statuses = ['Pending', 'Paid', 'Denied', 'In Review'];
-    const payers = ['Medicare', 'Blue Cross', 'Aetna', 'United Health', 'Medicaid'];
+    const sampleClaims: Claim[] = [];
     
-    return Array.from({ length: pageSize }, (_, i) => ({
-      id: `sample-${i + 1}`,
-      claim_id: `CL${100000 + i + (currentPage - 1) * pageSize}`,
-      patient_name: `Patient ${i + 1 + (currentPage - 1) * pageSize}`,
-      service_date_start: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000).toISOString(),
-      total_claim_charge_amount: Math.floor(Math.random() * 10000) + 500,
-      claim_status: statuses[Math.floor(Math.random() * statuses.length)],
-      payer_name: payers[Math.floor(Math.random() * payers.length)]
-    }));
+    for (let i = 1; i <= pageSize; i++) {
+      const status = ['Approved', 'Pending', 'Denied', 'In Process'][Math.floor(Math.random() * 4)];
+      const insuranceCode = ['MC', 'BL', 'CI', 'MD'][Math.floor(Math.random() * 4)];
+      const insuranceDesc = {
+        'MC': 'Medicare',
+        'BL': 'Blue Cross/Blue Shield',
+        'CI': 'Commercial Insurance',
+        'MD': 'Medicaid'
+      }[insuranceCode];
+      
+      sampleClaims.push({
+        id: `${i}`,
+        claim_id: `CL-2025-${(currentPage - 1) * pageSize + i}`.padStart(10, '0'),
+        patient_id: `PT${Math.floor(10000 + Math.random() * 90000)}`,
+        service_date_start: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        total_claim_charge_amount: Math.floor(500 + Math.random() * 5000),
+        claim_status: status,
+        claim_filing_indicator_code: insuranceCode,
+        claim_filing_indicator_desc: insuranceDesc || 'Other',
+        billing_code: `${insuranceCode}-2025-${(currentPage - 1) * pageSize + i}`.padStart(10, '0')
+      });
+    }
+    
+    return sampleClaims;
   }
   
   // Handle filter changes
@@ -322,10 +339,10 @@ export function ClaimsList() {
                     onChange={(e) => handleFilterChange('status', e.target.value)}
                   >
                     <option value="all">All Statuses</option>
+                    <option value="Approved">Approved</option>
                     <option value="Pending">Pending</option>
-                    <option value="Paid">Paid</option>
                     <option value="Denied">Denied</option>
-                    <option value="In Review">In Review</option>
+                    <option value="In Process">In Process</option>
                   </select>
                 </div>
                 
@@ -345,14 +362,18 @@ export function ClaimsList() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Payer</label>
-                  <input 
-                    type="text" 
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Type</label>
+                  <select 
                     className="w-full p-2 border rounded-md"
-                    placeholder="Payer name"
-                    value={filters.payerName}
-                    onChange={(e) => handleFilterChange('payerName', e.target.value)}
-                  />
+                    value={filters.insuranceType}
+                    onChange={(e) => handleFilterChange('insuranceType', e.target.value)}
+                  >
+                    <option value="">All Insurance Types</option>
+                    <option value="MC">Medicare</option>
+                    <option value="BL">Blue Cross/Blue Shield</option>
+                    <option value="CI">Commercial Insurance</option>
+                    <option value="MD">Medicaid</option>
+                  </select>
                 </div>
                 
                 <div>
@@ -361,7 +382,7 @@ export function ClaimsList() {
                     <input 
                       type="text" 
                       className="w-full p-2 pl-9 border rounded-md"
-                      placeholder="Claim # or Patient"
+                      placeholder="Claim # or Patient ID"
                       value={filters.searchTerm}
                       onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                     />
@@ -378,11 +399,11 @@ export function ClaimsList() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Claim #</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payer</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -402,21 +423,21 @@ export function ClaimsList() {
                   claims.map((claim: Claim) => (
                     <tr key={claim.id} className="hover:bg-gray-50 cursor-pointer">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{claim.claim_id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{claim.patient_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{claim.patient_id}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(claim.service_date_start).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(Number(claim.total_claim_charge_amount))}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                          ${claim.claim_status === 'Paid' ? 'bg-green-100 text-green-800' : 
+                          ${claim.claim_status === 'Approved' ? 'bg-green-100 text-green-800' : 
                             claim.claim_status === 'Denied' ? 'bg-red-100 text-red-800' :
                             claim.claim_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-blue-100 text-blue-800'}`}>
                           {claim.claim_status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{claim.payer_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{claim.claim_filing_indicator_desc}</td>
                     </tr>
                   ))
                 )}

@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export interface MetricCardProps {
   title: string;
   value: string;
-  icon?: JSX.Element;
-  trend?: string;
+  icon?: ReactElement;
+  trend?: string | number;
   trendUp?: boolean;
   loading?: boolean;
   type?: 'paid' | 'receivables' | 'negotiation' | 'unpaid';
@@ -48,12 +48,12 @@ export function MetricCard({
           <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
           {trend && (
             <p className={`mt-1 text-sm font-medium ${trendUp ? 'text-green-600' : 'text-red-600'}`}>
-              {trend} {trendUp ? '↑' : '↓'}
+              {typeof trend === 'number' ? `${trend > 0 ? '+' : ''}${trend}%` : trend} {trendUp ? '↑' : '↓'}
             </p>
           )}
         </div>
         {icon && (
-          <div className="p-2 rounded-full bg-gray-50">
+          <div className="p-3 bg-gray-50 rounded-full">
             {icon}
           </div>
         )}
