@@ -67,7 +67,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4 mb-5">
             <Scale className="mr-2 h-8 w-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">ClaimTracker</span>
+            <span className="text-xl font-bold text-gray-900">mARB</span>
           </div>
           <nav className="mt-5 flex-1 px-2 space-y-1">
             <Link
@@ -121,16 +121,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               Claims
             </Link>
             <Link
-              to="/patients"
+              to="/messages"
               className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                isActive('/patients')
+                isActive('/messages')
                   ? 'bg-blue-50 text-blue-700'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               <svg
                 className={`mr-3 flex-shrink-0 h-6 w-6 ${
-                  isActive('/patients') ? 'text-blue-500' : 'text-gray-500'
+                  isActive('/messages') ? 'text-blue-500' : 'text-gray-500'
                 }`}
                 fill="none"
                 viewBox="0 0 24 24"
@@ -140,10 +140,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                 />
               </svg>
-              Patients
+              Messages
             </Link>
             <Link
               to="/reports"
@@ -218,7 +218,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center">
             <Scale className="h-8 w-8 text-blue-600" />
-            <span className="ml-2 text-xl font-bold text-gray-900">ClaimTracker</span>
+            <span className="ml-2 text-xl font-bold text-gray-900">mARB</span>
           </div>
           <button
             onClick={toggleMobileMenu}
@@ -255,14 +255,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               Claims
             </Link>
             <Link
-              to="/patients"
+              to="/messages"
               className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive('/patients')
+                isActive('/messages')
                   ? 'bg-blue-50 text-blue-700'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              Patients
+              Messages
             </Link>
             <Link
               to="/reports"
