@@ -7,11 +7,13 @@ export interface User {
 export interface HealthcareClaim {
   id: number;
   claim_id: string;
+  patient_id: string;
   total_claim_charge_amount: number;
   facility_type_code: string;
   facility_type_desc: string;
   facility_code_qualifier: string;
   facility_code_qualifier_desc: string;
+  facility_code?: string;
   claim_frequency_type_code: string;
   claim_frequency_type_desc: string;
   service_date_start: string;
@@ -28,6 +30,8 @@ export interface HealthcareClaim {
   assignment_desc: string;
   benefits_assignment: string;
   benefits_assignment_desc: string;
+  claim_status: string;
+  billing_code?: string;
   created_at: string;
   updated_at: string;
 }
