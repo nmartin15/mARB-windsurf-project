@@ -1,96 +1,102 @@
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  TooltipProps 
+} from 'recharts';
+import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 
-interface TrendAnalysisProps {
-  data: {
-    range: string;
-    count: number;
-  }[];
+interface TrendData {
+  range: string;
+  count: number;
+  avgDays?: number;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TrendAnalysisProps {
+  data: TrendData[];
+}
+
+// Custom tooltip component to display both claim count and average days
+const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
   if (active && payload && payload.length) {
     const count = payload[0].value;
-    const range = label;
-
-    let color = '#22c55e'; // green for 0-30
-    if (range === '31-60' || range === '61-90') {
-      color = '#eab308'; // yellow for 31-90
-    } else if (range === '90+') {
-      color = '#ef4444'; // red for 90+
-    }
-
+    const avgDays = payload[0].payload.avgDays || 0;
+    
     return (
       <div className="bg-white p-3 shadow-lg rounded-lg border">
-        <p className="text-sm font-medium" style={{ color }}>
-          {range} days: {count} claims
-        </p>
+        <p className="text-sm font-medium text-gray-900 mb-1">{label}</p>
+        <p className="text-sm text-gray-700">Claims: <span className="font-medium">{count}</span></p>
+        {avgDays > 0 && (
+          <p className="text-sm text-gray-700">Avg. Days: <span className="font-medium">{avgDays}</span></p>
+        )}
       </div>
     );
   }
   return null;
 };
 
-const CustomXAxisTick = (props: any) => {
-  const { x, y, payload } = props;
-  let color = '#ef4444';
-  if (payload.value === '0-30') color = '#22c55e';
-  if (payload.value === '31-60' || payload.value === '61-90') color = '#eab308';
-
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <text x={0} y={0} dy={16} textAnchor="middle" fill={color} fontSize={12}>
-        {payload.value}
-      </text>
-    </g>
-  );
-};
-
 export function TrendAnalysisChart({ data }: TrendAnalysisProps) {
+  // Debug the incoming data
+  console.log('TrendAnalysisChart received data:', data);
+  
+  // Check if we have data to display
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-6">Historic Trend Analysis</h2>
+        <div className="h-80 flex items-center justify-center">
+          <p className="text-gray-500">No trend data available for the selected period.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Use the data as is - we're already sorting it in the Dashboard component
+  const chartData = [...data];
+  console.log('Chart data after preparation:', chartData);
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div className="bg-white rounded-lg shadow-sm p-6">
       <h2 className="text-lg font-medium text-gray-900 mb-6">Historic Trend Analysis</h2>
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
+          <AreaChart
+            data={chartData}
+            margin={{
+              top: 10,
+              right: 30,
+              left: 0,
+              bottom: 0,
+            }}
+          >
             <defs>
-              <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8} />
-                <stop offset="33%" stopColor="#22c55e" stopOpacity={0.8} />
-                <stop offset="33%" stopColor="#eab308" stopOpacity={0.8} />
-                <stop offset="66%" stopColor="#eab308" stopOpacity={0.8} />
-                <stop offset="66%" stopColor="#ef4444" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.8} />
+              <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.1}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="range"
-              tick={<CustomXAxisTick />}
-            />
+            <XAxis dataKey="range" tick={{ fontSize: 12 }} />
             <YAxis />
             <Tooltip content={<CustomTooltip />} />
             <Area
               type="monotone"
               dataKey="count"
-              stroke="url(#colorGradient)"
+              stroke="#3b82f6"
               fill="url(#colorGradient)"
-              fillOpacity={0.3}
+              strokeWidth={2}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
       <div className="mt-4 flex justify-center gap-6">
         <div className="flex items-center">
-          <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-          <span className="text-sm text-gray-600">0-30 days</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
-          <span className="text-sm text-gray-600">31-90 days</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-          <span className="text-sm text-gray-600">90+ days</span>
+          <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
+          <span className="text-sm text-gray-600">Claims</span>
         </div>
       </div>
     </div>

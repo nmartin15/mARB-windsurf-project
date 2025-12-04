@@ -9,15 +9,23 @@ export interface ReportFilters {
 }
 
 export interface RevenueLeak {
-  provider_id: string;
-  payer_id: string;
-  procedure_code: string;
-  claim_count: number;
-  total_billed: number;
-  total_paid: number;
-  revenue_gap: number;
-  collection_ratio: number;
-  denial_reasons: string;
+  providerId: string;
+  providerName?: string;
+  payerId: string;
+  payerName?: string;
+  procedureCode: string;
+  claimCount: number;
+  totalBilled: number;
+  totalPaid: number;
+  revenueGap: number;
+  collectionRatio: number;
+  denialReasons: string[];
+  claimId?: string;
+  serviceDate?: Date;
+  timestamp?: Date; // Keep for backward compatibility
+  claimFilingIndicator?: string;
+  billingProviderNpi?: string;
+  attendingProviderNpi?: string;
 }
 
 export interface CollectionTimeline {

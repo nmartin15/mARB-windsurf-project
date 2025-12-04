@@ -1,114 +1,115 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { supabase, usingMockData } from '../lib/supabase';
 import TextareaAutosize from 'react-textarea-autosize';
 import { format } from 'date-fns';
 import { Send, DollarSign, Loader2, Lock, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
+/**
+ * Message interface
+ */
 interface Message {
   id: string;
+  negotiation_id: string;
+  user_id: string;
   message: string;
   created_at: string;
-  user_id: string;
+  user_email?: string;
 }
 
+/**
+ * Negotiation interface
+ */
 interface Negotiation {
   id: string;
+  claim_id: string;
   proposed_amount: number;
-  status: string;
-  created_at: string;
   created_by: string;
+  created_at: string;
+  status_code: string;
+  status_desc: string;
+  creator_email?: string;
 }
 
+/**
+ * Type for combined chat items (messages or negotiations)
+ * Using a discriminated union type to ensure proper type checking
+ */
+type ChatItem = 
+  | (Message & { type?: 'message' }) 
+  | (Negotiation & { type?: 'negotiation' });
+
+/**
+ * Props for the ClaimChat component
+ */
 interface ClaimChatProps {
   claimId: string;
   claimAmount: number;
   status?: string;
 }
 
-export function ClaimChat({ claimId, claimAmount, status }: ClaimChatProps) {
+/**
+ * User data interface
+ */
+interface User {
+  id: string;
+  email?: string;
+}
+
+/**
+ * ClaimChat Component
+ * 
+ * Provides a chat interface for claim negotiations, allowing users to:
+ * - Send encrypted messages about a claim
+ * - Propose settlement amounts
+ * - View negotiation history
+ */
+const ClaimChat: React.FC<ClaimChatProps> = ({ claimId, claimAmount, status }) => {
+  // State for user data
+  const [user, setUser] = useState<User | null>(null);
+  
+  // State for chat data
   const [messages, setMessages] = useState<Message[]>([]);
   const [negotiations, setNegotiations] = useState<Negotiation[]>([]);
+  const [currentNegotiation, setCurrentNegotiation] = useState<string | null>(null);
+  const [chatItems, setChatItems] = useState<ChatItem[]>([]);
+  
+  // Form state
   const [newMessage, setNewMessage] = useState('');
   const [proposedAmount, setProposedAmount] = useState('');
+  
+  // UI state
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [proposingAmount, setProposingAmount] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
-  const [currentNegotiation, setCurrentNegotiation] = useState<string | null>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  // Refs
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const isClaimSettled = status === 'settled' || status === 'paid';
+  // Computed values
+  const isClaimSettled = status === 'settled';
+  const formattedClaimAmount = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+  }).format(claimAmount);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-
-    fetchUser();
-    fetchNegotiations();
-  }, [claimId]);
-
-  useEffect(() => {
-    if (currentNegotiation) {
-      fetchMessages();
-      subscribeToMessages();
-      subscribeToNegotiations();
-    }
-  }, [currentNegotiation]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, negotiations]);
-
+  /**
+   * Scrolls the chat view to the bottom
+   */
   const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
-  const subscribeToMessages = () => {
+  /**
+   * Fetches all messages for the current negotiation
+   */
+  const fetchMessages = useCallback(async () => {
     if (!currentNegotiation) return;
-
-    const messages = supabase
-      .channel('chat_messages')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'decrypted_chat_messages',
-        filter: `negotiation_id=eq.${currentNegotiation}`,
-      }, payload => {
-        setMessages(prev => [...prev, payload.new as Message]);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(messages);
-    };
-  };
-
-  const subscribeToNegotiations = () => {
-    const negotiations = supabase
-      .channel('negotiations')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'negotiations',
-        filter: `claim_id=eq.${claimId}`,
-      }, payload => {
-        setNegotiations(prev => [...prev, payload.new as Negotiation]);
-        setCurrentNegotiation(payload.new.id);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(negotiations);
-    };
-  };
-
-  const fetchMessages = async () => {
-    if (!currentNegotiation) return;
+    
     setError(null);
-
     try {
       const { data, error } = await supabase
         .from('decrypted_chat_messages')
@@ -122,9 +123,14 @@ export function ClaimChat({ claimId, claimAmount, status }: ClaimChatProps) {
       console.error('Error fetching messages:', error);
       setError('Failed to load messages');
     }
-  };
+  }, [currentNegotiation]);
 
-  const fetchNegotiations = async () => {
+  /**
+   * Fetches all negotiations for the current claim
+   */
+  const fetchNegotiations = useCallback(async () => {
+    if (!user) return;
+    
     setError(null);
     try {
       // First check if the claim exists
@@ -157,18 +163,93 @@ export function ClaimChat({ claimId, claimAmount, status }: ClaimChatProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, claimId]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !currentNegotiation || sendingMessage || isClaimSettled) return;
+  /**
+   * Sets up real-time subscription to new messages
+   * @returns Cleanup function to remove the subscription
+   */
+  const subscribeToMessages = useCallback(() => {
+    if (!currentNegotiation) return () => {};
 
+    // Create a channel for real-time events
+    const channel = supabase.channel('messages');
+    
+    // Subscribe to changes - using try/catch to ignore TS errors
+    try {
+      channel
+        .on(
+          // @ts-expect-error - Supabase typing issue
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'decrypted_chat_messages',
+            filter: `negotiation_id=eq.${currentNegotiation}`,
+          },
+          (payload: { new: Message; old: Message | null }) => {
+            setMessages((prev) => [...prev, payload.new]);
+          }
+        )
+        .subscribe();
+    } catch (e) {
+      console.error('Error setting up message subscription:', e);
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentNegotiation]);
+
+  /**
+   * Sets up real-time subscription to new negotiations
+   * @returns Cleanup function to remove the subscription
+   */
+  const subscribeToNegotiations = useCallback(() => {
+    if (!claimId) return () => {};
+    
+    // Create a channel for real-time events
+    const channel = supabase.channel('negotiations');
+    
+    // Subscribe to changes - using try/catch to ignore TS errors
+    try {
+      channel
+        .on(
+          // @ts-expect-error - Supabase typing issue
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'negotiations',
+            filter: `claim_id=eq.${claimId}`,
+          },
+          (payload: { new: Negotiation; old: Negotiation | null }) => {
+            setNegotiations((prev) => [...prev, payload.new]);
+            setCurrentNegotiation(payload.new.id);
+          }
+        )
+        .subscribe();
+    } catch (e) {
+      console.error('Error setting up negotiation subscription:', e);
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [claimId]);
+
+  /**
+   * Sends a new message in the chat
+   */
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || sendingMessage || !currentNegotiation || !user) return;
+    
     setSendingMessage(true);
     setError(null);
 
     try {
       const { error } = await supabase
-        .from('chat_messages')
+        .from('decrypted_chat_messages')
         .insert({
           negotiation_id: currentNegotiation,
           message: newMessage.trim(),
@@ -185,9 +266,13 @@ export function ClaimChat({ claimId, claimAmount, status }: ClaimChatProps) {
     }
   };
 
+  /**
+   * Handles proposing a new settlement amount
+   * @param e - Form submission event
+   */
   const handleProposeAmount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!proposedAmount || isNaN(Number(proposedAmount)) || proposingAmount || isClaimSettled) return;
+    if (!proposedAmount || isNaN(Number(proposedAmount)) || proposingAmount || isClaimSettled || !user) return;
 
     setProposingAmount(true);
     setError(null);
@@ -199,7 +284,8 @@ export function ClaimChat({ claimId, claimAmount, status }: ClaimChatProps) {
           claim_id: claimId,
           proposed_amount: Number(proposedAmount),
           created_by: user.id,
-          status: 'pending'
+          status_code: 'PEND',
+          status_desc: 'Pending'
         });
 
       if (error) throw error;
@@ -212,146 +298,390 @@ export function ClaimChat({ claimId, claimAmount, status }: ClaimChatProps) {
     }
   };
 
-  const renderChatItem = (item: Message | Negotiation, type: 'message' | 'negotiation') => {
-    const isCurrentUser = item.user_id === user?.id || item.created_by === user?.id;
-    const timestamp = format(new Date(item.created_at), 'MMM d, h:mm a');
-
-    if (type === 'negotiation') {
-      const negotiation = item as Negotiation;
-      return (
-        <div className={`flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'} mb-4`}>
-          <div className={`max-w-[80%] rounded-lg p-3 ${
-            isCurrentUser ? 'bg-green-100' : 'bg-blue-100'
-          }`}>
-            <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4" />
-              <span className="font-medium">Proposed Amount: ${negotiation.proposed_amount.toLocaleString()}</span>
-            </div>
-            <div className="text-sm text-gray-600">
-              Status: <span className="capitalize">{negotiation.status}</span>
-            </div>
-          </div>
-          <div className="text-xs text-gray-500 mt-1">
-            {timestamp}
-          </div>
-        </div>
-      );
-    }
-
-    const message = item as Message;
-    return (
-      <div className={`flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'} mb-4`}>
-        <div className={`max-w-[80%] rounded-lg p-3 ${
-          isCurrentUser ? 'bg-green-100' : 'bg-blue-100'
-        }`}>
-          <div className="flex items-center gap-2 mb-1">
-            <Lock className="h-3 w-3 text-gray-400" />
-            <p className="text-gray-800">{message.message}</p>
-          </div>
-        </div>
-        <div className="text-xs text-gray-500 mt-1">
-          {timestamp}
-        </div>
-      </div>
-    );
+  /**
+   * Gets the type of a chat item (message or negotiation)
+   * @param item The chat item to check
+   * @returns 'message' or 'negotiation'
+   */
+  const getChatItemType = (item: ChatItem): 'message' | 'negotiation' => {
+    return 'message' in item ? 'message' : 'negotiation';
   };
 
+  // Get chat history
+  useEffect(() => {
+    const fetchChatItems = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // TEMPORARY FIX: Use mock data in development mode
+        if (process.env.NODE_ENV === 'development' && (usingMockData || !claimId)) {
+          console.log('Using mock chat data in development mode');
+          
+          // Get mock user or create one
+          const mockUser = user || { 
+            id: 'mock-user-id', 
+            email: 'developer@example.com' 
+          };
+          
+          // Set mock time variables for creating realistic timestamps
+          const now = new Date();
+          const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+          const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+          const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+          
+          // Create mock chat items with proper schema standardization
+          const mockChatItems: ChatItem[] = [
+            {
+              id: 'mock-negotiation-1',
+              claim_id: claimId || 'mock-claim-123',
+              proposed_amount: claimAmount * 0.85, // 85% of claim amount
+              created_by: 'other-user-id',
+              created_at: threeDaysAgo.toISOString(),
+              status_code: 'PENDING',
+              status_desc: 'Pending Review',
+              creator_email: 'provider@example.com',
+              type: 'negotiation'
+            },
+            {
+              id: 'mock-message-1',
+              negotiation_id: 'mock-negotiation-1',
+              user_id: 'other-user-id',
+              message: 'I propose a settlement at 85% of the claim amount due to missing documentation.',
+              created_at: threeDaysAgo.toISOString(),
+              user_email: 'provider@example.com',
+              type: 'message'
+            },
+            {
+              id: 'mock-message-2',
+              negotiation_id: 'mock-negotiation-1',
+              user_id: mockUser.id,
+              message: 'We have all the required documentation. Can you specify what is missing?',
+              created_at: twoHoursAgo.toISOString(),
+              user_email: mockUser.email,
+              type: 'message'
+            },
+            {
+              id: 'mock-message-3',
+              negotiation_id: 'mock-negotiation-1',
+              user_id: 'other-user-id',
+              message: 'The procedure codes on the claim don\'t match our records. Can you verify?',
+              created_at: oneHourAgo.toISOString(),
+              user_email: 'provider@example.com',
+              type: 'message'
+            }
+          ];
+          
+          // Sort the mock items by creation date
+          mockChatItems.sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          
+          setChatItems(mockChatItems);
+          setLoading(false);
+          return;
+        }
+        
+        // Get all negotiations for this claim
+        const { data: negotiationsData, error: negotiationsError } = await supabase
+          .from('claim_negotiations')
+          .select('*, creator:created_by(email)')
+          .eq('claim_id', claimId);
+        
+        if (negotiationsError) {
+          console.error('Error fetching negotiations:', negotiationsError);
+          setError('Failed to load claim negotiations');
+          setLoading(false);
+          return;
+        }
+        
+        // Format the negotiations data
+        const negotiations: Negotiation[] = negotiationsData.map(neg => ({
+          id: neg.id,
+          claim_id: neg.claim_id,
+          proposed_amount: neg.proposed_amount,
+          created_by: neg.created_by,
+          created_at: neg.created_at,
+          status_code: neg.status_code,
+          status_desc: neg.status_desc,
+          creator_email: neg.creator?.email
+        }));
+        
+        // Get all messages for this claim's negotiations
+        const negotiationIds = negotiations.map(n => n.id);
+        
+        if (negotiationIds.length === 0) {
+          setChatItems([]);
+          setLoading(false);
+          return;
+        }
+        
+        const { data: messagesData, error: messagesError } = await supabase
+          .from('claim_negotiation_messages')
+          .select('*, sender:user_id(email)')
+          .in('negotiation_id', negotiationIds);
+        
+        if (messagesError) {
+          console.error('Error fetching messages:', messagesError);
+          setError('Failed to load messages');
+          setLoading(false);
+          return;
+        }
+        
+        // Format the messages data
+        const messages: Message[] = messagesData.map(msg => ({
+          id: msg.id,
+          negotiation_id: msg.negotiation_id,
+          user_id: msg.user_id,
+          message: msg.message,
+          created_at: msg.created_at,
+          user_email: msg.sender?.email
+        }));
+        
+        // Combine and sort all chat items by created_at timestamp
+        const allChatItems: ChatItem[] = [
+          ...messages.map(msg => ({ ...msg, type: 'message' as const })),
+          ...negotiations.map(neg => ({ ...neg, type: 'negotiation' as const }))
+        ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        
+        setChatItems(allChatItems);
+      } catch (error) {
+        console.error('Error fetching chat items:', error);
+        setError('An error occurred while loading the chat history');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (claimId) {
+      fetchChatItems();
+    }
+  }, [claimId, claimAmount, user]);
+
+  // Effect to fetch user data
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          setUser({
+            id: currentUser.id,
+            email: currentUser.email || undefined
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        setError('Failed to load user data');
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  // Effect to fetch negotiations when user is loaded
+  useEffect(() => {
+    if (user) {
+      fetchNegotiations();
+    }
+  }, [user, fetchNegotiations]);
+
+  // Effect to fetch messages and set up subscriptions when negotiation changes
+  useEffect(() => {
+    if (user && currentNegotiation) {
+      fetchMessages();
+      
+      const messageCleanup = subscribeToMessages();
+      const negotiationCleanup = subscribeToNegotiations();
+      
+      // Cleanup subscriptions on unmount or when negotiation changes
+      return () => {
+        messageCleanup();
+        negotiationCleanup();
+      };
+    }
+  }, [user, currentNegotiation, fetchMessages, subscribeToMessages, subscribeToNegotiations]);
+
+  // Effect to scroll to bottom when messages or negotiations update
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, negotiations]);
+
+  // Show loading state while data is being fetched
   if (loading) {
     return (
-      <div className="flex flex-col h-[600px] bg-white rounded-lg shadow-sm">
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
-        </div>
+      <div className="flex items-center justify-center h-full p-4">
+        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+        <p>Loading chat...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-[600px] bg-white rounded-lg shadow-sm">
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Claim Negotiation</h2>
-          <div className="flex items-center gap-1 text-xs text-gray-500">
-            <Lock className="h-3 w-3" />
-            <span>End-to-end encrypted</span>
-          </div>
-        </div>
-        <p className="text-sm text-gray-600">
-          Original Amount: ${claimAmount.toLocaleString()}
+    <div className="flex flex-col h-full bg-white shadow rounded-lg">
+      {/* Chat header */}
+      <div className="px-4 py-3 border-b">
+        <h3 className="text-lg font-semibold">Claim Negotiation</h3>
+        <p className="text-sm text-gray-500">
+          Claim ID: {claimId} • Original Amount: {formattedClaimAmount}
+          {status && <span className="ml-1 capitalize"> • Status: {status}</span>}
         </p>
-        {error && (
-          <div className="mt-2 text-sm text-red-600 bg-red-50 rounded-md p-2">
-            {error}
-          </div>
-        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {[...negotiations, ...messages]
-          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-          .map((item) => (
-            <div key={item.id}>
-              {renderChatItem(
-                item,
-                'message' in item ? 'message' : 'negotiation'
-              )}
-            </div>
-          ))}
-        <div ref={chatEndRef} />
-      </div>
-
-      {isClaimSettled ? (
-        <div className="p-4 border-t bg-gray-50">
-          <div className="flex items-center justify-center gap-2 text-gray-500">
-            <AlertCircle className="h-5 w-5" />
-            <span>This claim has been settled. No further negotiations are possible.</span>
-          </div>
+      {/* Error notification */}
+      {error && (
+        <div className="p-3 m-2 bg-red-50 text-red-600 rounded-md flex items-center">
+          <AlertCircle className="h-5 w-5 mr-2" />
+          <span>{error}</span>
         </div>
-      ) : (
-        <div className="p-4 border-t">
-          <form onSubmit={handleProposeAmount} className="mb-4">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                <input
-                  type="number"
-                  value={proposedAmount}
-                  onChange={(e) => setProposedAmount(e.target.value)}
-                  placeholder="Propose amount"
-                  className="w-full pl-8 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  disabled={proposingAmount}
-                />
+      )}
+
+      {/* Empty state when no negotiations */}
+      {negotiations.length === 0 && !loading && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <DollarSign className="h-12 w-12 text-blue-400 mb-4" />
+          <h3 className="text-lg font-medium">No negotiations yet</h3>
+          <p className="text-gray-500 mt-2 mb-6 max-w-sm">
+            Start the negotiation process by proposing a settlement amount for this claim.
+          </p>
+          
+          {/* Propose amount form */}
+          <form onSubmit={handleProposeAmount} className="w-full max-w-xs">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <span className="text-gray-500">$</span>
               </div>
-              <button
-                type="submit"
-                disabled={proposingAmount}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {proposingAmount ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Proposing...
-                  </>
-                ) : (
-                  'Propose'
-                )}
-              </button>
+              <input
+                type="number"
+                value={proposedAmount}
+                onChange={(e) => setProposedAmount(e.target.value)}
+                className="w-full p-2 pl-8 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Amount to propose"
+                disabled={proposingAmount || isClaimSettled}
+              />
             </div>
+            <button
+              type="submit"
+              className="w-full mt-2 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+              disabled={!proposedAmount || proposingAmount || isClaimSettled}
+            >
+              {proposingAmount ? (
+                <>
+                  <Loader2 className="inline-block h-4 w-4 animate-spin mr-1" />
+                  Proposing...
+                </>
+              ) : (
+                'Propose Settlement'
+              )}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Chat messages */}
+      {negotiations.length > 0 && (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {chatItems.map((item) => {
+            // Properly check if the item is from the current user based on its type
+            const isCurrentUser = 
+              ('user_id' in item && item.user_id === user?.id) || 
+              ('created_by' in item && item.created_by === user?.id);
+            
+            const itemType = getChatItemType(item);
+            
+            if (itemType === 'message') {
+              const message = item as Message;
+              return (
+                <div 
+                  key={message.id}
+                  className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[75%] rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                    <div className="text-sm text-gray-600 mb-1">
+                      {message.user_email || 'User'} • {format(new Date(message.created_at), 'MMM d, h:mm a')}
+                    </div>
+                    <div className="whitespace-pre-wrap break-words">{message.message}</div>
+                    <div className="text-xs text-right text-gray-500 mt-1">
+                      <Lock className="inline-block h-3 w-3 mr-1" />
+                      Encrypted
+                    </div>
+                  </div>
+                </div>
+              );
+            } else {
+              const negotiation = item as Negotiation;
+              return (
+                <div key={negotiation.id} className="flex justify-center">
+                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 max-w-[90%]">
+                    <div className="text-sm text-gray-600 mb-1">
+                      {negotiation.creator_email || 'User'} • {format(new Date(negotiation.created_at), 'MMM d, h:mm a')}
+                    </div>
+                    <div className="font-medium text-center">
+                      Proposed Settlement: ${negotiation.proposed_amount.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-center mt-1 capitalize">
+                      Status: {negotiation.status_desc}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+      )}
+
+      {/* Chat input area */}
+      {negotiations.length > 0 && (
+        <div className="px-4 py-3 border-t">
+          {/* Propose amount form */}
+          <form onSubmit={handleProposeAmount} className="flex gap-2 mb-3">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <span className="text-gray-500">$</span>
+              </div>
+              <input
+                type="number"
+                value={proposedAmount}
+                onChange={(e) => setProposedAmount(e.target.value)}
+                className="w-full p-2 pl-8 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Propose new amount"
+                disabled={proposingAmount || isClaimSettled}
+              />
+            </div>
+            <button
+              type="submit"
+              className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
+              disabled={!proposedAmount || proposingAmount || isClaimSettled}
+            >
+              {proposingAmount ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                'Propose'
+              )}
+            </button>
           </form>
 
-          <form onSubmit={handleSendMessage} className="flex gap-2">
+          {/* Send message form */}
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendMessage();
+            }} 
+            className="flex gap-2"
+          >
             <TextareaAutosize
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewMessage(e.target.value)}
+              className="flex-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Type a message..."
-              className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 min-h-[40px] max-h-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
-              maxRows={4}
-              disabled={sendingMessage || !currentNegotiation}
+              minRows={1}
+              maxRows={5}
+              disabled={sendingMessage || isClaimSettled}
             />
             <button
               type="submit"
-              disabled={sendingMessage || !currentNegotiation}
-              className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+              disabled={!newMessage.trim() || sendingMessage || isClaimSettled}
             >
               {sendingMessage ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -360,8 +690,16 @@ export function ClaimChat({ claimId, claimAmount, status }: ClaimChatProps) {
               )}
             </button>
           </form>
+          
+          {isClaimSettled && (
+            <p className="text-sm text-center mt-2 text-amber-600">
+              This claim has been settled. No further messages or proposals can be sent.
+            </p>
+          )}
         </div>
       )}
     </div>
   );
-}
+};
+
+export default ClaimChat;
