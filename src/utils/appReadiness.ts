@@ -14,7 +14,12 @@ export function isMissingSchemaError(error: PostgrestError): boolean {
 
 export function isMissingRpcError(error: PostgrestError): boolean {
   const message = `${error.message} ${error.details ?? ''}`.toLowerCase();
-  return error.code === '42883' || message.includes('function') && message.includes('does not exist');
+  return (
+    error.code === '42883' ||
+    error.code === 'PGRST202' ||
+    (message.includes('function') && message.includes('does not exist')) ||
+    (message.includes('could not find the function') && message.includes('schema cache'))
+  );
 }
 
 export function getReadinessMessage(status: AppReadinessStatus, details?: string): string {
