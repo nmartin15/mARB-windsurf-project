@@ -29,11 +29,12 @@ interface TrendChartProps {
 }
 
 // Define color coding based on days range
+// Blue: 0-30 days, Green: 30-60 days, Yellow: 60-90 days, Red: 90+ days
 const getDayRangeColor = (days: number): string => {
-  if (days < 15) return '#3b82f6'; // Blue
-  if (days < 30) return '#10b981'; // Green
-  if (days < 60) return '#f59e0b'; // Yellow
-  return '#ef4444'; // Red
+  if (days <= 30) return '#3b82f6'; // Blue
+  if (days <= 60) return '#10b981'; // Green
+  if (days <= 90) return '#f59e0b'; // Yellow
+  return '#ef4444'; // Red for 90+ days
 };
 
 // Helper function to extract the average days from a range string (e.g., "0-30" -> 15)
@@ -59,63 +60,41 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
-  // Fallback to hardcoded data from the SQL function
-  const getHardcodedData = () => {
-    // This matches the exact data in the get_trend_data function
-    const hardcodedData = [
-      { range: '0-30', count: 45, avgDays: 15.0 },
-      { range: '31-60', count: 32, avgDays: 45.0 },
-      { range: '61-90', count: 18, avgDays: 75.0 },
-      { range: '91+', count: 12, avgDays: 105.0 }
-    ];
-    
-    // Format the data for the chart with color coding
-    const formattedData = hardcodedData.map(item => {
-      const avgDays = item.avgDays;
-      return {
-        date: item.range,
-        amount: avgDays * 100, // Convert avgDays to a monetary amount for visualization
-        count: item.count,
-        avgDays,
-        color: getDayRangeColor(avgDays)
-      };
-    });
-    
-    setData(formattedData);
-    return formattedData;
-  };
-
   const fetchTrendData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       setDebugInfo(null);
-      
-      // First attempt: Try the RPC call
-      const result = await supabase.rpc('get_trend_data', { period });
-      
-      // Log the raw result for debugging in development only
+
+      const result = await supabase.rpc('get_trend_data', { p_period: period });
+
       if (process.env.NODE_ENV === 'development') {
         setDebugInfo(JSON.stringify(result, null, 2));
       }
-      
-      // If the RPC call fails, use hardcoded data
+
       if (result.error) {
-        setError(`Note: Using sample data because the API call failed: ${result.error.message}`);
-        getHardcodedData();
+        setError(`API call failed: ${result.error.message}`);
+        setData([]);
         return;
       }
-      
+
       if (result.data && result.data.length > 0) {
-        // Try to determine the data structure
         const firstItem = result.data[0] as TrendDataResponse;
-        
         let formattedData: FormattedTrendData[];
-        
-        // Check if it matches V1 structure
-        if ('date' in firstItem && 'amount' in firstItem && 'count' in firstItem) {
+
+        if ('range' in firstItem && 'count' in firstItem) {
           formattedData = result.data.map((item: TrendDataResponse) => {
-            // For V1 structure, estimate avgDays from the amount
+            const avgDays = (item.avgdays as number) ?? getAvgDaysFromRange(item.range as string);
+            return {
+              date: item.range as string,
+              amount: avgDays * 100,
+              count: item.count as number,
+              avgDays,
+              color: getDayRangeColor(avgDays)
+            };
+          });
+        } else if ('date' in firstItem && 'amount' in firstItem && 'count' in firstItem) {
+          formattedData = result.data.map((item: TrendDataResponse) => {
             const avgDays = ((item.amount as number) || 0) / 100;
             return {
               date: typeof item.date === 'string' ? item.date : format(new Date(String(item.date)), 'MMM dd'),
@@ -125,36 +104,13 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
               color: getDayRangeColor(avgDays)
             };
           });
-        }
-        // Check if it matches V2 structure
-        else if ('range' in firstItem && 'count' in firstItem && 'avgDays' in firstItem) {
-          formattedData = result.data.map((item: TrendDataResponse) => {
-            const avgDays = item.avgDays as number;
-            return {
-              date: item.range as string,
-              amount: avgDays * 100, // Convert avgDays to a monetary amount for visualization
-              count: item.count as number,
-              avgDays,
-              color: getDayRangeColor(avgDays)
-            };
-          });
-        }
-        // Unknown structure - try to adapt
-        else {
-          // Try our best to adapt to an unknown structure
-          // Log keys only in development mode
-          if (process.env.NODE_ENV === 'development') {
-            setDebugInfo(prev => `${prev || ''}\nKeys in first item: ${Object.keys(firstItem).join(', ')}`);
-          }
-          
+        } else {
           formattedData = result.data.map((item: TrendDataResponse) => {
             const keys = Object.keys(item);
             const date = String(item[keys[0]] || 'Unknown');
-            // Try to extract average days from the range string or use a default value
-            const avgDays = 'range' in item 
+            const avgDays = 'range' in item
               ? getAvgDaysFromRange(item.range as string)
               : ('avgDays' in item ? Number(item.avgDays) : 30);
-            
             return {
               date,
               amount: typeof item[keys[1]] === 'number' ? item[keys[1]] : 0,
@@ -164,15 +120,14 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
             };
           });
         }
-        
+
         setData(formattedData);
       } else {
-        getHardcodedData();
-        setError('No data returned from the API. Showing sample data instead.');
+        setData([]);
       }
-    } catch (error) {
-      setError(`An error occurred while fetching trend data: ${error instanceof Error ? error.message : String(error)}`);
-      getHardcodedData();
+    } catch (err) {
+      setError(`Error fetching trend data: ${err instanceof Error ? err.message : String(err)}`);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -216,19 +171,19 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
         <div className="flex items-center space-x-4 text-xs">
           <div className="flex items-center">
             <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
-            <span>0-15 days</span>
+            <span>0-30 days</span>
           </div>
           <div className="flex items-center">
             <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
-            <span>15-30 days</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></div>
             <span>30-60 days</span>
           </div>
           <div className="flex items-center">
+            <div className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></div>
+            <span>60-90 days</span>
+          </div>
+          <div className="flex items-center">
             <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
-            <span>60+ days</span>
+            <span>90+ days</span>
           </div>
         </div>
       </div>

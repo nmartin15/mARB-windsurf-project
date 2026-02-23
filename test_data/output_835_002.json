@@ -1,0 +1,361 @@
+[
+  {
+    "file_name": "835_remit_002.txt",
+    "file_type": "835",
+    "file_hash": "38e078dc0acc16cb877438ad236b3fb73cfce3bad08b70cd74edaae9412e5939",
+    "record_count": 2,
+    "parse_summary": {
+      "warnings": [],
+      "unknown_adjustment_groups": [],
+      "unknown_carc_codes": [],
+      "unknown_clp_status_codes": [],
+      "invalid_dates": 0,
+      "segment_delimiter": "~",
+      "element_delimiter": "*",
+      "component_delimiter": ":"
+    },
+    "payments": [
+      {
+        "payment": {
+          "patient_control_number": "SRM-2025-0004",
+          "claim_status_code": "1",
+          "claim_status_desc": "Processed as Primary",
+          "total_charge_amount": 225.0,
+          "paid_amount": 168.75,
+          "patient_responsibility": 22.5,
+          "claim_filing_indicator_code": "CI",
+          "payer_claim_control_number": "AETNA-CLM-90004",
+          "payer_id": "60054",
+          "payer_name": "AETNA",
+          "check_number": "EFT20250210-002",
+          "payment_date": "2025-02-07",
+          "payment_method_code": "ACH",
+          "file_name": "835_remit_002.txt",
+          "patient_last_name": "MARTINEZ",
+          "patient_first_name": "SOFIA",
+          "statement_start": "2025-01-17",
+          "statement_end": "2025-01-17"
+        },
+        "service_lines": [
+          {
+            "procedure_code": "99214",
+            "modifier_1": null,
+            "charge_amount": 175.0,
+            "paid_amount": 131.25,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 26.25,
+                "adjustment_quantity": null,
+                "level": "line"
+              },
+              {
+                "adjustment_group_code": "PR",
+                "adjustment_group_desc": "Patient Responsibility",
+                "carc_code": "3",
+                "carc_description": "Copayment Amount",
+                "adjustment_amount": 17.5,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          },
+          {
+            "procedure_code": "96127",
+            "modifier_1": null,
+            "charge_amount": 50.0,
+            "paid_amount": 25.0,
+            "revenue_code": "2",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 20.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              },
+              {
+                "adjustment_group_code": "PR",
+                "adjustment_group_desc": "Patient Responsibility",
+                "carc_code": "3",
+                "carc_description": "Copayment Amount",
+                "adjustment_amount": 5.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          },
+          {
+            "procedure_code": "90834",
+            "modifier_1": null,
+            "charge_amount": 25.0,
+            "paid_amount": 12.5,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 12.5,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          }
+        ],
+        "adjustments": [
+          {
+            "adjustment_group_code": "CO",
+            "adjustment_group_desc": "Contractual Obligation",
+            "carc_code": "45",
+            "carc_description": "Charges exceed contracted/legislated fee arrangement",
+            "adjustment_amount": 33.75,
+            "adjustment_quantity": null,
+            "level": "claim"
+          },
+          {
+            "adjustment_group_code": "PR",
+            "adjustment_group_desc": "Patient Responsibility",
+            "carc_code": "3",
+            "carc_description": "Copayment Amount",
+            "adjustment_amount": 22.5,
+            "adjustment_quantity": 1,
+            "level": "claim"
+          }
+        ]
+      },
+      {
+        "payment": {
+          "patient_control_number": "JTB-2025-0005",
+          "claim_status_code": "1",
+          "claim_status_desc": "Processed as Primary",
+          "total_charge_amount": 1250.0,
+          "paid_amount": 862.5,
+          "patient_responsibility": 125.0,
+          "claim_filing_indicator_code": "12",
+          "payer_claim_control_number": "CIGNA-CLM-90005",
+          "payer_id": "60054",
+          "payer_name": "AETNA",
+          "check_number": "EFT20250210-002",
+          "payment_date": "2025-02-08",
+          "payment_method_code": "ACH",
+          "file_name": "835_remit_002.txt",
+          "patient_last_name": "BROOKS",
+          "patient_first_name": "JAMES",
+          "statement_start": "2025-01-15",
+          "statement_end": "2025-01-15"
+        },
+        "service_lines": [
+          {
+            "procedure_code": "99215",
+            "modifier_1": null,
+            "charge_amount": 250.0,
+            "paid_amount": 187.5,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 37.5,
+                "adjustment_quantity": null,
+                "level": "line"
+              },
+              {
+                "adjustment_group_code": "PR",
+                "adjustment_group_desc": "Patient Responsibility",
+                "carc_code": "1",
+                "carc_description": "Deductible Amount",
+                "adjustment_amount": 25.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          },
+          {
+            "procedure_code": "93000",
+            "modifier_1": null,
+            "charge_amount": 150.0,
+            "paid_amount": 120.0,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 30.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          },
+          {
+            "procedure_code": "93306",
+            "modifier_1": null,
+            "charge_amount": 350.0,
+            "paid_amount": 245.0,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 70.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              },
+              {
+                "adjustment_group_code": "PR",
+                "adjustment_group_desc": "Patient Responsibility",
+                "carc_code": "2",
+                "carc_description": "Coinsurance Amount",
+                "adjustment_amount": 35.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          },
+          {
+            "procedure_code": "93005",
+            "modifier_1": null,
+            "charge_amount": 125.0,
+            "paid_amount": 87.5,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 25.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              },
+              {
+                "adjustment_group_code": "PR",
+                "adjustment_group_desc": "Patient Responsibility",
+                "carc_code": "2",
+                "carc_description": "Coinsurance Amount",
+                "adjustment_amount": 12.5,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          },
+          {
+            "procedure_code": "93017",
+            "modifier_1": null,
+            "charge_amount": 200.0,
+            "paid_amount": 140.0,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 40.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              },
+              {
+                "adjustment_group_code": "PR",
+                "adjustment_group_desc": "Patient Responsibility",
+                "carc_code": "2",
+                "carc_description": "Coinsurance Amount",
+                "adjustment_amount": 20.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          },
+          {
+            "procedure_code": "80061",
+            "modifier_1": null,
+            "charge_amount": 85.0,
+            "paid_amount": 42.5,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 42.5,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          },
+          {
+            "procedure_code": "80048",
+            "modifier_1": null,
+            "charge_amount": 90.0,
+            "paid_amount": 40.0,
+            "revenue_code": "1",
+            "units_paid": null,
+            "adjustments": [
+              {
+                "adjustment_group_code": "CO",
+                "adjustment_group_desc": "Contractual Obligation",
+                "carc_code": "45",
+                "carc_description": "Charges exceed contracted/legislated fee arrangement",
+                "adjustment_amount": 50.0,
+                "adjustment_quantity": null,
+                "level": "line"
+              }
+            ]
+          }
+        ],
+        "adjustments": [
+          {
+            "adjustment_group_code": "CO",
+            "adjustment_group_desc": "Contractual Obligation",
+            "carc_code": "45",
+            "carc_description": "Charges exceed contracted/legislated fee arrangement",
+            "adjustment_amount": 262.5,
+            "adjustment_quantity": null,
+            "level": "claim"
+          },
+          {
+            "adjustment_group_code": "PR",
+            "adjustment_group_desc": "Patient Responsibility",
+            "carc_code": "1",
+            "carc_description": "Deductible Amount",
+            "adjustment_amount": 75.0,
+            "adjustment_quantity": 1,
+            "level": "claim"
+          },
+          {
+            "adjustment_group_code": "PR",
+            "adjustment_group_desc": "Patient Responsibility",
+            "carc_code": "2",
+            "carc_description": "Coinsurance Amount",
+            "adjustment_amount": 50.0,
+            "adjustment_quantity": 1,
+            "level": "claim"
+          }
+        ]
+      }
+    ]
+  }
+]

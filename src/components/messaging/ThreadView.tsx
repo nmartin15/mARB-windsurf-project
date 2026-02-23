@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { supabase, usingMockData } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { MessageWithUser, ThreadWithDetails, ClaimReference } from '../../types/messaging';
 import { getThreadKey } from '../../utils/keyManagement';
 import { decryptMessage } from '../../utils/encryption';
@@ -57,17 +57,7 @@ export function ThreadView() {
     
     try {
       setDecryptingMessages(true);
-      
-      // TEMPORARY FIX: In development mode, use the decrypted_content directly
-      if (usingMockData) {
-        console.log('Using mock decryption in development mode');
-        
-        // The mock data already has decrypted_content so we can skip actual decryption
-        // but we still need to set the state to maintain the component flow
-        setDecryptingMessages(false);
-        return;
-      }
-      
+
       const threadKey = await getThreadKey(threadId);
       
       const decryptedMessages = await Promise.all(
@@ -117,103 +107,7 @@ export function ThreadView() {
       
       try {
         setLoading(true);
-        
-        // TEMPORARY FIX: Check if we're in development mode and return mock data
-        // This will be removed once proper database migrations are applied
-        if (usingMockData) {
-          console.log('Using mock thread data in development mode');
-          
-          // Create mock data with proper schema standardization (_code and _desc suffix pairs)
-          const mockUserId = (await supabase.auth.getUser()).data.user?.id || 'mock-user-id';
-          const now = new Date().toISOString();
-          const yesterday = new Date(Date.now() - 86400000).toISOString();
-          
-          // Create a mock thread based on the threadId parameter
-          const mockThread: ThreadWithDetails = {
-            id: threadId,
-            subject: `Discussion about Claim #${threadId.slice(-5)}`,
-            created_at: yesterday,
-            updated_at: now,
-            claim_id: `mock-claim-${threadId.slice(-5)}`,
-            thread_type_code: 'CLAIM',
-            thread_type_desc: 'Claim Discussion',
-            status_code: 'ACTIVE',
-            status_desc: 'Active Thread',
-            participants: [
-              {
-                id: `mock-participant-${threadId}`,
-                thread_id: threadId,
-                user_id: mockUserId,
-                added_at: yesterday,
-                role_code: 'ADMIN',
-                role_desc: 'Administrator',
-                permissions: {
-                  can_read: true,
-                  can_write: true
-                }
-              }
-            ],
-            unread_count: 0
-          };
-          
-          // Create mock messages for this thread
-          const mockMessages: MessageWithUser[] = [
-            {
-              id: `mock-message-1-${threadId}`,
-              thread_id: threadId,
-              sender_id: mockUserId,
-              encrypted_content: '',
-              content_iv: '',
-              metadata: {},
-              created_at: yesterday,
-              message_type_code: 'TEXT',
-              message_type_desc: 'Text Message',
-              decrypted_content: 'Hello, I would like to discuss this claim.',
-              user: {
-                id: mockUserId,
-                email: 'user@example.com',
-                full_name: 'Current User'
-              }
-            },
-            {
-              id: `mock-message-2-${threadId}`,
-              thread_id: threadId,
-              sender_id: 'other-user-id',
-              encrypted_content: '',
-              content_iv: '',
-              metadata: {},
-              created_at: now,
-              message_type_code: 'TEXT',
-              message_type_desc: 'Text Message',
-              decrypted_content: 'Thank you for reaching out. What would you like to discuss?',
-              user: {
-                id: 'other-user-id',
-                email: 'provider@example.com',
-                full_name: 'Healthcare Provider'
-              }
-            }
-          ];
-          
-          // Create mock claim data
-          const mockClaim: ClaimReference = {
-            claim_id: `mock-claim-${threadId.slice(-5)}`,
-            billing_code: `CL-${threadId.slice(-3)}`,
-            total_claim_charge_amount: 10000,
-            claim_filing_indicator_code: 'electronic',
-            claim_filing_indicator_desc: 'Electronic claim'
-          };
-          
-          // Set the mock data
-          setThread({...mockThread, claim: mockClaim});
-          setMessages(mockMessages);
-          setCurrentUserId(mockUserId);
-          setHasWritePermission(true);
-          setClaim(mockClaim);
-          
-          setLoading(false);
-          return;
-        }
-        
+
         // Get thread details
         const { data: threadData, error: threadError } = await supabase
           .from('message_threads')
@@ -231,16 +125,16 @@ export function ThreadView() {
         let claimData: ClaimReference | null = null;
         if (threadData.claim_id) {
           const { data: fetchedClaim } = await supabase
-            .from('healthcare_claims')
-            .select('claim_id, billing_code, total_claim_charge_amount, claim_filing_indicator_code, claim_filing_indicator_desc')
+            .from('claim_headers')
+            .select('claim_id, total_charge_amount, claim_filing_indicator_code, claim_filing_indicator_desc')
             .eq('claim_id', threadData.claim_id)
             .single();
           
           if (fetchedClaim) {
             claimData = {
               claim_id: fetchedClaim.claim_id || '',
-              billing_code: fetchedClaim.billing_code || '',
-              total_claim_charge_amount: fetchedClaim.total_claim_charge_amount || 0,
+              billing_code: '',
+              total_claim_charge_amount: fetchedClaim.total_charge_amount || 0,
               claim_filing_indicator_code: fetchedClaim.claim_filing_indicator_code || '',
               claim_filing_indicator_desc: fetchedClaim.claim_filing_indicator_desc || ''
             };

@@ -1,0 +1,428 @@
+[
+  {
+    "file_name": "837P_batch_002.txt",
+    "file_type": "837P",
+    "file_hash": "270cdc498fe51b7f881db00e183330d538f2750118fc9c231cc4c11aa0f4204e",
+    "record_count": 2,
+    "metadata": {
+      "file_name": "837P_batch_002.txt",
+      "sender_id": "SENDER_ID",
+      "receiver_id": "RECEIVER_ID",
+      "transaction_type": "HC",
+      "gs_sender": "SENDER_ID",
+      "gs_receiver": "RECEIVER_ID",
+      "transaction_set": "837"
+    },
+    "parse_summary": {
+      "warnings": [],
+      "unknown_dtp_qualifiers": [],
+      "unknown_ref_qualifiers": [],
+      "unknown_diagnosis_qualifiers": [],
+      "invalid_dates": 0,
+      "segment_delimiter": "~",
+      "element_delimiter": "*",
+      "component_delimiter": ":"
+    },
+    "claims": [
+      {
+        "claim": {
+          "claim_type": "professional",
+          "file_name": "837P_batch_002.txt",
+          "file_type": "837P",
+          "claim_filing_indicator_code": "CI",
+          "claim_filing_indicator_desc": "Commercial Insurance",
+          "claim_id": "SRM-2025-0004",
+          "total_charge_amount": "225.00",
+          "facility_type_code": "11",
+          "facility_type_desc": "Office",
+          "facility_code_qualifier": "B",
+          "claim_frequency_type_code": "1",
+          "claim_frequency_type_desc": "Original Claim",
+          "assignment_code": "A",
+          "assignment_desc": "Assigned",
+          "benefits_assignment": "Y",
+          "release_of_info_code": "Y",
+          "payer_responsibility_code": "P",
+          "payer_responsibility_desc": "Primary",
+          "payer_name": "AETNA",
+          "payer_id": "60054"
+        },
+        "lines": [
+          {
+            "line_number": 1,
+            "procedure_code": "99214",
+            "procedure_qualifier": "HC",
+            "charge_amount": "175.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          },
+          {
+            "line_number": 2,
+            "procedure_code": "96127",
+            "procedure_qualifier": "HC",
+            "charge_amount": "25.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "2",
+            "place_of_service_code": ""
+          },
+          {
+            "line_number": 3,
+            "procedure_code": "90834",
+            "procedure_qualifier": "HC",
+            "charge_amount": "25.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          }
+        ],
+        "diagnoses": [
+          {
+            "diagnosis_code": "F41.1",
+            "diagnosis_type": "principal",
+            "code_qualifier": "ABK",
+            "sequence_number": 1
+          },
+          {
+            "diagnosis_code": "F32.1",
+            "diagnosis_type": "other",
+            "code_qualifier": "ABF",
+            "sequence_number": 2
+          },
+          {
+            "diagnosis_code": "G47.00",
+            "diagnosis_type": "other",
+            "code_qualifier": "ABF",
+            "sequence_number": 3
+          }
+        ],
+        "dates_header": [
+          {
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250117",
+            "parsed_date": "2025-01-17"
+          }
+        ],
+        "dates_line": [
+          {
+            "line_number": 1,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250117",
+            "parsed_date": "2025-01-17"
+          },
+          {
+            "line_number": 2,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250117",
+            "parsed_date": "2025-01-17"
+          },
+          {
+            "line_number": 3,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250117",
+            "parsed_date": "2025-01-17"
+          }
+        ],
+        "providers": [
+          {
+            "provider_role": "billing",
+            "entity_identifier_code": "85",
+            "entity_type_qualifier": "2",
+            "last_or_org_name": "NASHVILLE PRIMARY CARE PLLC",
+            "first_name": "",
+            "id_code_qualifier": "XX",
+            "npi": "1234567890"
+          },
+          {
+            "provider_role": "other",
+            "entity_identifier_code": "IL",
+            "entity_type_qualifier": "1",
+            "last_or_org_name": "MARTINEZ",
+            "first_name": "SOFIA",
+            "middle_name": "R",
+            "id_code_qualifier": "MI",
+            "npi": "MTZ20250004"
+          },
+          {
+            "provider_role": "other",
+            "entity_identifier_code": "QC",
+            "entity_type_qualifier": "1",
+            "last_or_org_name": "MARTINEZ",
+            "first_name": "SOFIA",
+            "middle_name": "R"
+          }
+        ],
+        "references": [
+          {
+            "reference_qualifier": "D9",
+            "reference_qualifier_desc": "Claim Identifier",
+            "reference_value": "CLAIM-REF-00004"
+          }
+        ]
+      },
+      {
+        "claim": {
+          "claim_type": "professional",
+          "file_name": "837P_batch_002.txt",
+          "file_type": "837P",
+          "claim_filing_indicator_code": "12",
+          "claim_filing_indicator_desc": "PPO",
+          "claim_id": "JTB-2025-0005",
+          "total_charge_amount": "1250.00",
+          "facility_type_code": "11",
+          "facility_type_desc": "Office",
+          "facility_code_qualifier": "B",
+          "claim_frequency_type_code": "1",
+          "claim_frequency_type_desc": "Original Claim",
+          "assignment_code": "A",
+          "assignment_desc": "Assigned",
+          "benefits_assignment": "Y",
+          "release_of_info_code": "Y",
+          "prior_auth_number": "AUTH2025-55912",
+          "prior_auth_status": "approved",
+          "payer_responsibility_code": "P",
+          "payer_responsibility_desc": "Primary",
+          "payer_name": "CIGNA HEALTHCARE",
+          "payer_id": "62308"
+        },
+        "lines": [
+          {
+            "line_number": 1,
+            "procedure_code": "99215",
+            "procedure_qualifier": "HC",
+            "charge_amount": "250.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          },
+          {
+            "line_number": 2,
+            "procedure_code": "93000",
+            "procedure_qualifier": "HC",
+            "charge_amount": "150.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          },
+          {
+            "line_number": 3,
+            "procedure_code": "93306",
+            "procedure_qualifier": "HC",
+            "charge_amount": "350.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          },
+          {
+            "line_number": 4,
+            "procedure_code": "93005",
+            "procedure_qualifier": "HC",
+            "charge_amount": "125.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          },
+          {
+            "line_number": 5,
+            "procedure_code": "93017",
+            "procedure_qualifier": "HC",
+            "charge_amount": "200.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          },
+          {
+            "line_number": 6,
+            "procedure_code": "80061",
+            "procedure_qualifier": "HC",
+            "charge_amount": "85.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          },
+          {
+            "line_number": 7,
+            "procedure_code": "80048",
+            "procedure_qualifier": "HC",
+            "charge_amount": "90.00",
+            "unit_measurement_code": "UN",
+            "unit_count": "1",
+            "place_of_service_code": ""
+          }
+        ],
+        "diagnoses": [
+          {
+            "diagnosis_code": "I25.10",
+            "diagnosis_type": "principal",
+            "code_qualifier": "ABK",
+            "sequence_number": 1
+          },
+          {
+            "diagnosis_code": "I10",
+            "diagnosis_type": "other",
+            "code_qualifier": "ABF",
+            "sequence_number": 2
+          },
+          {
+            "diagnosis_code": "E11.9",
+            "diagnosis_type": "other",
+            "code_qualifier": "ABF",
+            "sequence_number": 3
+          },
+          {
+            "diagnosis_code": "E78.5",
+            "diagnosis_type": "other",
+            "code_qualifier": "ABF",
+            "sequence_number": 4
+          },
+          {
+            "diagnosis_code": "Z79.4",
+            "diagnosis_type": "other",
+            "code_qualifier": "ABF",
+            "sequence_number": 5
+          }
+        ],
+        "dates_header": [
+          {
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          },
+          {
+            "date_qualifier": "232",
+            "date_qualifier_desc": "Statement Period Start",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          },
+          {
+            "date_qualifier": "233",
+            "date_qualifier_desc": "Statement Period End",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          }
+        ],
+        "dates_line": [
+          {
+            "line_number": 1,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          },
+          {
+            "line_number": 2,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          },
+          {
+            "line_number": 3,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          },
+          {
+            "line_number": 4,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          },
+          {
+            "line_number": 5,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          },
+          {
+            "line_number": 6,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          },
+          {
+            "line_number": 7,
+            "date_qualifier": "472",
+            "date_qualifier_desc": "Service Date",
+            "date_format_qualifier": "D8",
+            "date_value": "20250115",
+            "parsed_date": "2025-01-15"
+          }
+        ],
+        "providers": [
+          {
+            "provider_role": "billing",
+            "entity_identifier_code": "85",
+            "entity_type_qualifier": "2",
+            "last_or_org_name": "NASHVILLE PRIMARY CARE PLLC",
+            "first_name": "",
+            "id_code_qualifier": "XX",
+            "npi": "1234567890"
+          },
+          {
+            "provider_role": "other",
+            "entity_identifier_code": "IL",
+            "entity_type_qualifier": "1",
+            "last_or_org_name": "BROOKS",
+            "first_name": "JAMES",
+            "middle_name": "T",
+            "id_code_qualifier": "MI",
+            "npi": "BRK20250005"
+          },
+          {
+            "provider_role": "other",
+            "entity_identifier_code": "QC",
+            "entity_type_qualifier": "1",
+            "last_or_org_name": "BROOKS",
+            "first_name": "JAMES",
+            "middle_name": "T"
+          },
+          {
+            "provider_role": "rendering",
+            "entity_identifier_code": "82",
+            "entity_type_qualifier": "1",
+            "last_or_org_name": "PATEL",
+            "first_name": "ANISHA",
+            "middle_name": "",
+            "id_code_qualifier": "XX",
+            "npi": "9876543210"
+          }
+        ],
+        "references": [
+          {
+            "reference_qualifier": "D9",
+            "reference_qualifier_desc": "Claim Identifier",
+            "reference_value": "CLAIM-REF-00005"
+          },
+          {
+            "reference_qualifier": "G1",
+            "reference_qualifier_desc": "Prior Authorization Number",
+            "reference_value": "AUTH2025-55912"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase, usingMockData } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import TextareaAutosize from 'react-textarea-autosize';
 import { format } from 'date-fns';
 import { Send, DollarSign, Loader2, Lock, AlertCircle } from 'lucide-react';
@@ -135,7 +135,7 @@ const ClaimChat: React.FC<ClaimChatProps> = ({ claimId, claimAmount, status }) =
     try {
       // First check if the claim exists
       const { data: claims, error: claimError } = await supabase
-        .from('healthcare_claims')
+        .from('claim_headers')
         .select('claim_id')
         .eq('claim_id', claimId);
 
@@ -313,75 +313,7 @@ const ClaimChat: React.FC<ClaimChatProps> = ({ claimId, claimAmount, status }) =
       try {
         setLoading(true);
         setError(null);
-        
-        // TEMPORARY FIX: Use mock data in development mode
-        if (process.env.NODE_ENV === 'development' && (usingMockData || !claimId)) {
-          console.log('Using mock chat data in development mode');
-          
-          // Get mock user or create one
-          const mockUser = user || { 
-            id: 'mock-user-id', 
-            email: 'developer@example.com' 
-          };
-          
-          // Set mock time variables for creating realistic timestamps
-          const now = new Date();
-          const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-          const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-          const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-          
-          // Create mock chat items with proper schema standardization
-          const mockChatItems: ChatItem[] = [
-            {
-              id: 'mock-negotiation-1',
-              claim_id: claimId || 'mock-claim-123',
-              proposed_amount: claimAmount * 0.85, // 85% of claim amount
-              created_by: 'other-user-id',
-              created_at: threeDaysAgo.toISOString(),
-              status_code: 'PENDING',
-              status_desc: 'Pending Review',
-              creator_email: 'provider@example.com',
-              type: 'negotiation'
-            },
-            {
-              id: 'mock-message-1',
-              negotiation_id: 'mock-negotiation-1',
-              user_id: 'other-user-id',
-              message: 'I propose a settlement at 85% of the claim amount due to missing documentation.',
-              created_at: threeDaysAgo.toISOString(),
-              user_email: 'provider@example.com',
-              type: 'message'
-            },
-            {
-              id: 'mock-message-2',
-              negotiation_id: 'mock-negotiation-1',
-              user_id: mockUser.id,
-              message: 'We have all the required documentation. Can you specify what is missing?',
-              created_at: twoHoursAgo.toISOString(),
-              user_email: mockUser.email,
-              type: 'message'
-            },
-            {
-              id: 'mock-message-3',
-              negotiation_id: 'mock-negotiation-1',
-              user_id: 'other-user-id',
-              message: 'The procedure codes on the claim don\'t match our records. Can you verify?',
-              created_at: oneHourAgo.toISOString(),
-              user_email: 'provider@example.com',
-              type: 'message'
-            }
-          ];
-          
-          // Sort the mock items by creation date
-          mockChatItems.sort((a, b) => 
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-          
-          setChatItems(mockChatItems);
-          setLoading(false);
-          return;
-        }
-        
+
         // Get all negotiations for this claim
         const { data: negotiationsData, error: negotiationsError } = await supabase
           .from('claim_negotiations')

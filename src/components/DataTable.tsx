@@ -19,9 +19,10 @@ interface DataTableProps<T> {
   data: T[];
   columns: ColumnDef<T>[];
   onRowClick?: (row: T) => void;
+  tableLabel?: string;
 }
 
-export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
+export function DataTable<T>({ data, columns, onRowClick, tableLabel = 'Data table' }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -155,12 +156,21 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
   const renderHeader = useCallback((header: any) => (
     <th
       key={header.id}
-      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
+      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider bg-gray-50"
+      aria-sort={
+        header.column.getIsSorted() === 'asc'
+          ? 'ascending'
+          : header.column.getIsSorted() === 'desc'
+            ? 'descending'
+            : 'none'
+      }
     >
       <div className="space-y-2">
-        <div
-          className="flex items-center gap-2 cursor-pointer"
+        <button
+          type="button"
+          className="flex items-center gap-2 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 rounded"
           onClick={header.column.getToggleSortingHandler()}
+          aria-label={`Sort by ${String(header.column.columnDef.header ?? header.column.id)}`}
         >
           {flexRender(
             header.column.columnDef.header,
@@ -171,7 +181,7 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
           ) : header.column.getIsSorted() === 'desc' ? (
             <ChevronDown className="h-4 w-4" />
           ) : null}
-        </div>
+        </button>
         
         <div className="relative">
           <div className="flex items-center">
@@ -181,10 +191,14 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
               onChange={e => handleColumnFilterChange(header.column.id, e.target.value)}
               placeholder="Filter..."
               className="w-full px-2 py-1 text-xs border rounded-l focus:outline-none focus:ring-1 focus:ring-green-500"
+              aria-label={`Filter by ${String(header.column.columnDef.header ?? header.column.id)}`}
             />
             <button
+              type="button"
               onClick={() => toggleFilterDropdown(header.column.id)}
               className="px-2 py-1 text-xs border border-l-0 rounded-r bg-gray-50 hover:bg-gray-100"
+              aria-label={`Show suggestions for ${String(header.column.columnDef.header ?? header.column.id)}`}
+              aria-expanded={Boolean(filterDropdownOpen[header.column.id])}
             >
               <Filter className="h-3 w-3" />
             </button>
@@ -193,16 +207,17 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
           {filterDropdownOpen[header.column.id] && (
             <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
               {getFilteredOptions(header.column.id, (header.column.getFilterValue() as string) || '').map((option: string) => (
-                <div
+                <button
+                  type="button"
                   key={option}
-                  className="px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer"
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100"
                   onClick={() => {
                     handleColumnFilterChange(header.column.id, option);
                     toggleFilterDropdown(header.column.id);
                   }}
                 >
                   {option}
-                </div>
+                </button>
               ))}
               {getFilteredOptions(header.column.id, (header.column.getFilterValue() as string) || '').length === 0 && (
                 <div className="px-3 py-2 text-xs text-gray-500">No options found</div>
@@ -212,8 +227,10 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
           
           {header.column.getFilterValue() && (
             <button
+              type="button"
               onClick={() => clearColumnFilter(header.column.id)}
               className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label={`Clear filter for ${String(header.column.columnDef.header ?? header.column.id)}`}
             >
               <X className="h-3 w-3" />
             </button>
@@ -233,11 +250,13 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
             onChange={e => setGlobalFilter(e.target.value)}
             placeholder="Search all columns..."
             className="pl-10 pr-4 py-2 border rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            aria-label="Search all table columns"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
         </div>
         {(columnFilters.length > 0 || globalFilter) && (
           <button
+            type="button"
             onClick={clearAllFilters}
             className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
           >
@@ -251,6 +270,7 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
         <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
           <div className="inline-block min-w-full align-middle">
             <table className="min-w-full divide-y divide-gray-200">
+              <caption className="sr-only">{tableLabel}</caption>
               <thead className="bg-gray-50">
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
@@ -262,8 +282,15 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
                 {table.getRowModel().rows.map(row => (
                   <tr
                     key={row.id}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => onRowClick?.(row.original)}
+                    className={`hover:bg-gray-50 transition-colors ${onRowClick ? 'cursor-pointer focus-within:bg-gray-50' : ''}`}
+                    tabIndex={onRowClick ? 0 : -1}
+                    onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                    onKeyDown={onRowClick ? (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onRowClick(row.original);
+                      }
+                    } : undefined}
                   >
                     {row.getVisibleCells().map(cell => (
                       <td
@@ -279,7 +306,7 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
                   <tr>
                     <td
                       colSpan={columns.length}
-                      className="px-6 py-4 text-center text-gray-500 text-sm"
+                      className="px-6 py-4 text-center text-gray-600 text-sm"
                     >
                       No results found
                     </td>
@@ -297,6 +324,7 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
               value={pageSize}
               onChange={e => setPageSize(Number(e.target.value))}
               className="border rounded px-2 py-1 text-sm"
+              aria-label="Rows per page"
             >
               {[10, 20, 30, 50].map(size => (
                 <option key={size} value={size}>
@@ -310,6 +338,7 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
               className={`p-1 rounded ${
@@ -317,10 +346,12 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
                   ? 'text-gray-300 cursor-not-allowed'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
+              aria-label="Previous page"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
+              type="button"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
               className={`p-1 rounded ${
@@ -328,6 +359,7 @@ export function DataTable<T>({ data, columns, onRowClick }: DataTableProps<T>) {
                   ? 'text-gray-300 cursor-not-allowed'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
+              aria-label="Next page"
             >
               <ChevronRight className="h-5 w-5" />
             </button>

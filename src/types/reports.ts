@@ -6,26 +6,72 @@ export interface ReportFilters {
   procedureCode?: string;
   minAmount?: number;
   minClaimCount?: number;
+  period?: string;
+  orgId?: number;
 }
 
 export interface RevenueLeak {
-  providerId: string;
+  claimId: string;
+  providerId?: string;
   providerName?: string;
-  payerId: string;
+  payerId?: string;
   payerName?: string;
-  procedureCode: string;
-  claimCount: number;
+  procedureCode?: string;
+  serviceDate?: string;
+  claimFilingIndicator?: string;
+  billingProviderNpi?: string;
+  attendingProviderNpi?: string;
   totalBilled: number;
   totalPaid: number;
   revenueGap: number;
   collectionRatio: number;
   denialReasons: string[];
-  claimId?: string;
-  serviceDate?: Date;
-  timestamp?: Date; // Keep for backward compatibility
-  claimFilingIndicator?: string;
-  billingProviderNpi?: string;
-  attendingProviderNpi?: string;
+  claimStatus?: string;
+}
+
+export interface ARAgingRow {
+  payer_id: string;
+  payer_name: string;
+  amount_0_30: number;
+  amount_31_60: number;
+  amount_61_90: number;
+  amount_91_120: number;
+  amount_120_plus: number;
+  count_0_30: number;
+  count_31_60: number;
+  count_61_90: number;
+  count_91_120: number;
+  count_120_plus: number;
+}
+
+export interface DenialSummaryRow {
+  carc_code: string;
+  carc_description: string;
+  adjustment_group: string;
+  payer_id: string;
+  payer_name: string;
+  denial_count: number;
+  total_denied_amount: number;
+}
+
+export interface PayerPerformanceRow {
+  payer_id: string;
+  payer_name: string;
+  total_claims: number;
+  total_charged: number;
+  total_paid: number;
+  avg_days_to_payment: number;
+  denial_rate: number;
+  reimbursement_rate: number;
+}
+
+export interface CleanClaimRateRow {
+  period_label: string;
+  total_claims: number;
+  clean_claims: number;
+  clean_claim_rate: number;
+  denied_claims: number;
+  rejected_claims: number;
 }
 
 export interface CollectionTimeline {

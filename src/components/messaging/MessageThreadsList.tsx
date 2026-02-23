@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, usingMockData } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { ThreadWithDetails } from '../../types/messaging';
 import { MessageCircle, Plus, AlertCircle, FileText, X } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { getClaimsNeedingSettlement, generateMockMessageThreads, startSettlementDiscussion } from '../../lib/messagingTableFixes';
 
 /**
  * Interface for available claim data
@@ -44,27 +43,7 @@ export function MessageThreadsList() {
     async function fetchAvailableClaims() {
       try {
         setClaimsLoading(true);
-        
-        // In development with mock data
-        if (usingMockData) {
-          const mockClaims = getClaimsNeedingSettlement();
-          // Convert ClaimReference to AvailableClaim
-          const availableClaims: AvailableClaim[] = mockClaims.map(claim => ({
-            claim_id: claim.claim_id,
-            billing_code: claim.billing_code || '',
-            total_claim_charge_amount: claim.total_claim_charge_amount || 0,
-            claim_filing_indicator_code: claim.claim_filing_indicator_code || '',
-            claim_filing_indicator_desc: claim.claim_filing_indicator_desc,
-            provider_id: 'mock-provider-123', 
-            status_code: 'DENIED', 
-            status_desc: 'Claim Denied'
-          }));
-          setClaimsForSettlement(availableClaims);
-          setClaimsLoading(false);
-          return;
-        }
 
-        // Get threads with claim associations
         const { data: threadData, error: threadError } = await supabase
           .from('message_threads')
           .select('claim_id')
@@ -72,22 +51,28 @@ export function MessageThreadsList() {
 
         if (threadError) throw threadError;
 
-        // Extract claim IDs that already have threads
         const claimIdsWithThreads = (threadData || []).map(t => t.claim_id);
 
-        // Get claims that don't have threads yet
         const { data: claimsData, error: claimsError } = await supabase
-          .from('healthcare_claims')
-          .select('claim_id, billing_code, total_claim_charge_amount, claim_filing_indicator_code, claim_filing_indicator_desc, status_code, status_desc, provider_id')
-          .in('status_code', ['DENIED', 'REJECTED', 'APPEALED']);
+          .from('claim_headers')
+          .select('claim_id, total_charge_amount, claim_filing_indicator_code, claim_filing_indicator_desc, claim_status, payer_id')
+          .in('claim_status', ['denied', 'rejected', 'appealed']);
 
         if (claimsError) throw claimsError;
 
         if (claimsData) {
-          // Filter out claims that already have threads
-          const availableClaims = claimsData.filter(
-            claim => !claimIdsWithThreads.includes(claim.claim_id)
-          );
+          const availableClaims: AvailableClaim[] = claimsData
+            .filter(claim => !claimIdsWithThreads.includes(claim.claim_id))
+            .map(claim => ({
+              claim_id: claim.claim_id,
+              billing_code: '',
+              total_claim_charge_amount: Number(claim.total_charge_amount) || 0,
+              claim_filing_indicator_code: claim.claim_filing_indicator_code || '',
+              claim_filing_indicator_desc: claim.claim_filing_indicator_desc,
+              provider_id: claim.payer_id,
+              status_code: claim.claim_status?.toUpperCase(),
+              status_desc: claim.claim_status,
+            }));
           setClaimsForSettlement(availableClaims);
         }
       } catch (error) {
@@ -106,16 +91,6 @@ export function MessageThreadsList() {
       try {
         setLoading(true);
 
-        // First check if we're using mock data to avoid unnecessary Supabase calls
-        if (usingMockData) {
-          console.log('Using mock message threads data');
-          const mockThreads = generateMockMessageThreads(5);
-          setThreads(mockThreads);
-          setFilteredData(mockThreads);
-          return;
-        }
-
-        // Continue with real data fetch...
         const { data: userData } = await supabase.auth.getUser();
         const userId = userData?.user?.id;
 
@@ -174,7 +149,7 @@ export function MessageThreadsList() {
           let claim = null;
           if (thread.claim_id) {
             const { data: claimData, error: claimError } = await supabase
-              .from('healthcare_claims')
+              .from('claim_headers')
               .select('*')
               .eq('claim_id', thread.claim_id)
               .single();
@@ -207,60 +182,7 @@ export function MessageThreadsList() {
     fetchThreadsData();
   }, []);
 
-  // Fetch claims that need settlement (denied, rejected, appealed)
-  useEffect(() => {
-    async function fetchClaimsForSettlementData() {
-      try {
-        setClaimsLoading(true);
-        
-        // Check if we're in mock mode
-        if (usingMockData) {
-          console.log('Using mock claims data for settlement');
-          const mockClaims = getClaimsNeedingSettlement();
-          // Convert ClaimReference to AvailableClaim
-          const availableClaims: AvailableClaim[] = mockClaims.map(claim => ({
-            claim_id: claim.claim_id,
-            billing_code: claim.billing_code || '',
-            total_claim_charge_amount: claim.total_claim_charge_amount || 0,
-            claim_filing_indicator_code: claim.claim_filing_indicator_code || '',
-            claim_filing_indicator_desc: claim.claim_filing_indicator_desc,
-            provider_id: 'mock-provider-123', 
-            status_code: 'DENIED', 
-            status_desc: 'Claim Denied'
-          }));
-          setClaimsForSettlement(availableClaims);
-          return;
-        }
-        
-        // Real implementation
-        const { data: userData } = await supabase.auth.getUser();
-        const userId = userData?.user?.id;
-
-        if (!userId) {
-          return;
-        }
-
-        // Get claims with status codes for denied, rejected, appealed
-        const { data: claimsData, error: claimsError } = await supabase
-          .from('healthcare_claims')
-          .select('*')
-          .in('status_code', ['DENIED', 'REJECTED', 'APPEALED']);
-
-        if (claimsError) {
-          console.error('Error fetching denied claims:', claimsError);
-          return;
-        }
-
-        setClaimsForSettlement(claimsData || []);
-      } catch (error) {
-        console.error('Error fetching claims for settlement:', error);
-      } finally {
-        setClaimsLoading(false);
-      }
-    }
-
-    fetchClaimsForSettlementData();
-  }, []);
+  // Duplicate claims fetch removed — covered by first useEffect above
 
   // Filter threads based on selected filter
   useEffect(() => {
@@ -300,34 +222,6 @@ export function MessageThreadsList() {
   const handleStartSettlement = async (claim: AvailableClaim) => {
     try {
       setCreatingThread(true);
-      
-      // For mock data implementation
-      if (usingMockData) {
-        // Convert AvailableClaim to ClaimReference format for startSettlementDiscussion
-        const claimRef = {
-          claim_id: claim.claim_id,
-          billing_code: claim.billing_code,
-          total_claim_charge_amount: claim.total_claim_charge_amount,
-          claim_filing_indicator_code: claim.claim_filing_indicator_code,
-          claim_filing_indicator_desc: claim.claim_filing_indicator_desc
-        };
-        
-        const newThread = await startSettlementDiscussion(
-          claimRef,
-          `I would like to discuss a settlement for this ${claim.claim_filing_indicator_desc?.toLowerCase() || ''} claim.`
-        );
-        
-        if (newThread) {
-          // Add the new thread to the list and navigate to it
-          setThreads(prev => [newThread, ...prev]);
-          navigate(`/messaging/thread/${newThread.id}`);
-        }
-        return;
-      }
-      
-      // Real implementation would go here
-      // Get the provider ID from the claim to add as participant
-      const providerId = claim.provider_id || 'unknown-provider';
       
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;

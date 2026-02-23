@@ -1,131 +1,298 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { formatCurrency, formatDate } from '../utils/format';
+import type { ClaimHeader } from '../types';
 import { supabase } from '../lib/supabase';
-import { formatCurrency } from '../utils/format';
-import { DollarSign, FileText } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { getClaimStatusBadgeClass } from '../utils/claimStatus';
+import { useClaimDetails } from '../hooks/useClaimDetails';
+import { ClaimDetailPanel } from '../components/claims/ClaimDetailPanel';
+import { buildClaimsSearchClause, getNextClaimsSortState } from '../utils/claimsList';
 
-// Simple interface for summary data
-interface ClaimsSummary {
-  count: number;
-  totalAmount: number;
-}
+const PAGE_SIZE = 25;
 
-/**
- * Minimal ClaimsList component that only shows summary data
- */
+const STATUS_OPTIONS = ['all', 'submitted', 'accepted', 'paid', 'partial', 'denied', 'rejected', 'appealed'];
+const RISK_OPTIONS = ['all', 'high', 'medium', 'low'] as const;
+
 export function ClaimsList() {
+  const [claims, setClaims] = useState<ClaimHeader[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<ClaimsSummary>({ count: 0, totalAmount: 0 });
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [sortField, setSortField] = useState<string>('created_at');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [riskFilter, setRiskFilter] = useState<(typeof RISK_OPTIONS)[number]>('all');
+  const { expandedClaim, claimDetail, loadingClaimId, toggleClaimDetails } = useClaimDetails();
 
-  // Fetch just the count and total amount on component mount
-  useEffect(() => {
-    async function fetchClaimsSummary() {
-      try {
-        setLoading(true);
-        
-        // First, get the count of claims
-        const { count, error: countError } = await supabase
-          .from('healthcare_claims')
-          .select('*', { count: 'exact', head: true });
-        
-        if (countError) {
-          console.error('Error fetching claims count:', countError);
-          setError(countError.message);
-          return;
-        }
-        
-        // Then get the sum of claim amounts
-        const { data: sumData, error: sumError } = await supabase
-          .from('healthcare_claims')
-          .select('total_claim_charge_amount');
-        
-        if (sumError) {
-          console.error('Error fetching claims sum:', sumError);
-          setError(sumError.message);
-          return;
-        }
-        
-        // Calculate total amount
-        const total = sumData.reduce((sum, claim) => {
-          const amount = Number(claim.total_claim_charge_amount) || 0;
-          return sum + amount;
-        }, 0);
-        
-        setSummary({
-          count: count || 0,
-          totalAmount: total
-        });
-        
-        console.log(`Successfully loaded summary: ${count} claims totaling ${total}`);
-        
-      } catch (err) {
-        console.error('Error in fetchClaimsSummary:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
+  const fetchClaims = useCallback(async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('claim_headers')
+        .select('*', { count: 'exact' })
+        .not('file_name', 'is', null)
+        .order(sortField, { ascending: sortAsc })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      if (statusFilter !== 'all') {
+        query = query.eq('claim_status', statusFilter);
       }
-    }
+      if (riskFilter === 'high') {
+        query = query.lt('prediction_score', 0.7);
+      } else if (riskFilter === 'medium') {
+        query = query.gte('prediction_score', 0.7).lt('prediction_score', 0.9);
+      } else if (riskFilter === 'low') {
+        query = query.gte('prediction_score', 0.9);
+      }
+      const searchClause = buildClaimsSearchClause(searchTerm);
+      if (searchClause) {
+        query = query.or(searchClause);
+      }
 
-    fetchClaimsSummary();
-  }, []);
+      const { data, error, count } = await query;
+      if (error) throw error;
+      setClaims((data as ClaimHeader[]) || []);
+      setTotalCount(count || 0);
+    } catch (err) {
+      console.error('Error fetching claims:', err);
+      setClaims([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, sortField, sortAsc, statusFilter, riskFilter, searchTerm]);
+
+  useEffect(() => {
+    fetchClaims();
+  }, [fetchClaims]);
+
+  function handleSort(field: string) {
+    const nextSortState = getNextClaimsSortState({ sortField, sortAsc }, field);
+    setSortField(nextSortState.sortField);
+    setSortAsc(nextSortState.sortAsc);
+    setPage(0);
+  }
+
+  function getAriaSort(field: string): 'ascending' | 'descending' | 'none' {
+    if (sortField !== field) return 'none';
+    return sortAsc ? 'ascending' : 'descending';
+  }
+
+  function getRiskBadge(score?: number | null) {
+    if (score == null) {
+      return { label: '--', className: 'bg-gray-100 text-gray-700' };
+    }
+    if (score < 0.7) {
+      return { label: 'High', className: 'bg-red-100 text-red-800' };
+    }
+    if (score < 0.9) {
+      return { label: 'Medium', className: 'bg-yellow-100 text-yellow-800' };
+    }
+    return { label: 'Low', className: 'bg-green-100 text-green-800' };
+  }
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return null;
+    return sortAsc ? <ChevronUp className="inline h-3 w-3" /> : <ChevronDown className="inline h-3 w-3" />;
+  };
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Claims List</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Claims Explorer</h1>
+        <span className="text-sm text-gray-500">{totalCount} claims found</span>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4 items-center">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by claim ID, payer, or patient..."
+            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
+            aria-label="Search claims by claim ID, payer, or patient"
+          />
         </div>
-        
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="p-4 border-b">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-full">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-blue-600">Total Claims</p>
-                  <p className="text-xl font-semibold">{summary.count}</p>
-                </div>
-              </div>
-              
-              <div className="bg-green-50 p-4 rounded-lg flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-full">
-                  <DollarSign className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-green-600">Total Amount</p>
-                  <p className="text-xl font-semibold">{formatCurrency(summary.totalAmount)}</p>
-                </div>
-              </div>
+        <select
+          className="px-3 py-2 border rounded-lg text-sm"
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+          aria-label="Filter claims by status"
+        >
+          {STATUS_OPTIONS.map(s => (
+            <option key={s} value={s}>{s === 'all' ? 'All Statuses' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
+          ))}
+        </select>
+        <select
+          className="px-3 py-2 border rounded-lg text-sm"
+          value={riskFilter}
+          onChange={(e) => { setRiskFilter(e.target.value as (typeof RISK_OPTIONS)[number]); setPage(0); }}
+          aria-label="Filter claims by acceptance risk"
+        >
+          {RISK_OPTIONS.map(r => (
+            <option key={r} value={r}>{r === 'all' ? 'All Risks' : `${r.charAt(0).toUpperCase() + r.slice(1)} Risk`}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        {loading ? (
+          <div className="flex justify-center items-center h-64" role="status" aria-live="polite" aria-label="Loading claims">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+          </div>
+        ) : claims.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500" role="status" aria-live="polite">
+            <FileText className="h-12 w-12 mb-3" />
+            <p className="text-sm">No claims found</p>
+            <p className="text-xs mt-1 text-gray-600">Upload EDI files to populate claims data</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200" aria-label="Claims explorer table">
+              <caption className="sr-only">Claims explorer with sortable columns and expandable details</caption>
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase" aria-sort={getAriaSort('claim_id')}>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded" onClick={() => handleSort('claim_id')}>
+                      Claim ID <SortIcon field="claim_id" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase" aria-sort={getAriaSort('payer_name')}>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded" onClick={() => handleSort('payer_name')}>
+                      Payer <SortIcon field="payer_name" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase" aria-sort={getAriaSort('claim_filing_indicator_desc')}>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded" onClick={() => handleSort('claim_filing_indicator_desc')}>
+                      Insurance Type <SortIcon field="claim_filing_indicator_desc" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase" aria-sort={getAriaSort('total_charge_amount')}>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded" onClick={() => handleSort('total_charge_amount')}>
+                      Charged <SortIcon field="total_charge_amount" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase" aria-sort={getAriaSort('paid_amount')}>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded" onClick={() => handleSort('paid_amount')}>
+                      Paid <SortIcon field="paid_amount" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase" aria-sort={getAriaSort('claim_status')}>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded" onClick={() => handleSort('claim_status')}>
+                      Status <SortIcon field="claim_status" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase" aria-sort={getAriaSort('prediction_score')}>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded" onClick={() => handleSort('prediction_score')}>
+                      Risk <SortIcon field="prediction_score" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase" aria-sort={getAriaSort('created_at')}>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded" onClick={() => handleSort('created_at')}>
+                      Date <SortIcon field="created_at" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 w-8"></th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {claims.map((claim) => (
+                  <Fragment key={claim.id}>
+                    {(() => {
+                      const risk = getRiskBadge(claim.prediction_score);
+                      return (
+                    <tr
+                      className="hover:bg-gray-50"
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">{claim.claim_id}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{claim.payer_name || claim.payer_id || '--'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{claim.claim_filing_indicator_desc || claim.claim_filing_indicator_code || '--'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">{formatCurrency(claim.total_charge_amount || 0)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">{claim.paid_amount != null ? formatCurrency(claim.paid_amount) : '--'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getClaimStatusBadgeClass(claim.claim_status)}`} aria-label={`Claim status ${claim.claim_status}`}>
+                          {claim.claim_status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${risk.className}`} aria-label={`Prediction risk ${risk.label}`}>
+                          {risk.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDate(claim.created_at)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => toggleClaimDetails(claim.id)}
+                          aria-expanded={expandedClaim === claim.id}
+                          aria-controls={`claim-detail-${claim.id}`}
+                          aria-label={`${expandedClaim === claim.id ? 'Collapse' : 'Expand'} details for claim ${claim.claim_id}`}
+                          className="p-1 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        >
+                          {expandedClaim === claim.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                      </td>
+                    </tr>
+                      );
+                    })()}
+                    {expandedClaim === claim.id && (
+                      <tr id={`claim-detail-${claim.id}`}>
+                        <td colSpan={9} className="px-4 py-4 bg-gray-50">
+                          {loadingClaimId === claim.id ? (
+                            <div className="flex items-center justify-center h-20 text-sm text-gray-600" role="status" aria-live="polite">
+                              Loading claim details...
+                            </div>
+                          ) : claimDetail ? (
+                            <ClaimDetailPanel detail={claimDetail} claim={claim} />
+                          ) : (
+                            <p className="text-sm text-gray-600">No detail data available.</p>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <div className="text-sm text-gray-600">
+              Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                className="p-1 border rounded disabled:opacity-30"
+                disabled={page === 0}
+                onClick={() => setPage(page - 1)}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-sm text-gray-700">Page {page + 1} of {totalPages}</span>
+              <button
+                type="button"
+                className="p-1 border rounded disabled:opacity-30"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage(page + 1)}
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
           </div>
-          
-          <div className="p-4">
-            {error && (
-              <div className="bg-red-50 p-4 mb-4 rounded-lg text-red-700">
-                <p className="font-bold">Error:</p>
-                <p>{error}</p>
-              </div>
-            )}
-            
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              </div>
-            ) : (
-              <div className="p-8 text-center text-gray-500">
-                <p>Claims data loaded successfully.</p>
-                <p>We're showing just the summary to avoid rendering issues.</p>
-                <p className="mt-4 text-sm text-blue-600">
-                  The previous version was failing because of duplicate claim IDs in the data, 
-                  which caused React's key-based rendering to break.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </DashboardLayout>
   );

@@ -50,7 +50,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
             Disputes Closed: {payload[0]?.value || 0}
           </p>
           <p className="text-sm text-green-600">
-            Avg. Days to Payment: {payload[1]?.value?.toFixed(1) || 0} days
+            Avg. Days to Payment: {payload[1]?.value != null ? Math.max(0, payload[1].value).toFixed(1) : 0} days
           </p>
         </div>
       </div>
@@ -64,7 +64,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
  * It allows filtering the data by different time periods.
  */
 export function PaymentVelocityChart({ data, onPeriodChange }: PaymentVelocityProps) {
-  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('1M');
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('YTD');
 
   /**
    * Handle period change and call the onPeriodChange callback if provided
@@ -144,6 +144,7 @@ export function PaymentVelocityChart({ data, onPeriodChange }: PaymentVelocityPr
               yAxisId="right"
               orientation="right"
               tick={{ fill: '#6B7280', fontSize: 12 }}
+              domain={[0, 'auto']}
               label={{ 
                 value: 'Days to Payment',
                 angle: 90,

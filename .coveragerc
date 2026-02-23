@@ -1,0 +1,13 @@
+[run]
+source =
+    claim_matching
+    edi_utils
+    load_to_supabase
+    loader_persistence
+    parse_835
+    parse_837p
+    pipeline_models
+
+[report]
+show_missing = True
+skip_covered = False

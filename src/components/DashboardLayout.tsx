@@ -55,6 +55,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+
   // Check if the current route is active
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -176,19 +180,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <button
             onClick={handleSignOut}
             className="w-full flex items-center px-2 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50"
+            type="button"
           >
             <LogOut className="mr-3 h-5 w-5" />
             Sign Out
           </button>
           
           {connectionStatus && (
-            <div 
+            <div
               className={`mt-4 text-sm rounded-md p-2 ${
-                connectionStatus === 'connected' 
-                  ? 'bg-green-50 text-green-700' 
-                  : 'bg-red-50 text-red-700 cursor-pointer'
+                connectionStatus === 'connected'
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-red-50 text-red-700'
               }`}
-              onClick={() => connectionStatus !== 'connected' && setShowConnectionDetails(!showConnectionDetails)}
             >
               <div className="flex items-center">
                 {connectionStatus === 'connected' ? (
@@ -203,6 +207,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </span>
               </div>
               
+              {connectionStatus !== 'connected' && connectionDetails && (
+                <button
+                  type="button"
+                  className="mt-2 text-xs underline"
+                  onClick={() => setShowConnectionDetails(!showConnectionDetails)}
+                  aria-expanded={showConnectionDetails}
+                >
+                  {showConnectionDetails ? 'Hide details' : 'Show details'}
+                </button>
+              )}
+
               {showConnectionDetails && connectionDetails && (
                 <div className="mt-2 text-xs bg-white p-2 rounded border border-red-200">
                   {connectionDetails}
@@ -223,6 +238,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <button
             onClick={toggleMobileMenu}
             className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+            type="button"
+            aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={isMobileMenuOpen}
           >
             {isMobileMenuOpen ? (
               <X className="h-6 w-6" />
@@ -236,6 +254,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <nav className="px-2 pt-2 pb-3 space-y-1">
             <Link
               to="/dashboard"
+              onClick={closeMobileMenu}
               className={`block px-3 py-2 rounded-md text-base font-medium ${
                 isActive('/dashboard')
                   ? 'bg-blue-50 text-blue-700'
@@ -246,6 +265,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Link>
             <Link
               to="/claims"
+              onClick={closeMobileMenu}
               className={`block px-3 py-2 rounded-md text-base font-medium ${
                 isActive('/claims')
                   ? 'bg-blue-50 text-blue-700'
@@ -256,6 +276,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Link>
             <Link
               to="/messages"
+              onClick={closeMobileMenu}
               className={`block px-3 py-2 rounded-md text-base font-medium ${
                 isActive('/messages')
                   ? 'bg-blue-50 text-blue-700'
@@ -266,6 +287,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Link>
             <Link
               to="/reports"
+              onClick={closeMobileMenu}
               className={`block px-3 py-2 rounded-md text-base font-medium ${
                 isActive('/reports')
                   ? 'bg-blue-50 text-blue-700'
@@ -275,8 +297,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               Reports
             </Link>
             <button
-              onClick={handleSignOut}
+              onClick={async () => {
+                closeMobileMenu();
+                await handleSignOut();
+              }}
               className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50"
+              type="button"
             >
               Sign Out
             </button>
@@ -293,6 +319,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <button
                 onClick={toggleMobileMenu}
                 className="p-1 rounded-full text-gray-400 hover:text-gray-500"
+                type="button"
+                aria-label="Open navigation menu"
               >
                 <Menu className="h-6 w-6" />
               </button>
@@ -300,7 +328,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </div>
         
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
           {/* Connection error alert for mobile */}
           {connectionStatus === 'error' && (
             <div className="mb-6 md:hidden bg-red-50 border-l-4 border-red-400 p-4">
