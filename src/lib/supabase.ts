@@ -1,4 +1,5 @@
 import { createClient, PostgrestError, AuthError } from '@supabase/supabase-js';
+import { getReadinessMessage, isMissingRpcError, isMissingSchemaError, type AppReadinessStatus } from '../utils/appReadiness';
 
 declare global {
   interface ImportMeta {
@@ -83,17 +84,24 @@ function isAuthError(error: unknown): error is AuthError {
 /**
  * Test the Supabase connection by querying the canonical schema.
  */
-export async function testSupabaseConnection(): Promise<{ ok: boolean; message: string; error?: PostgrestError | Error }> {
+export async function testSupabaseConnection(): Promise<{
+  ok: boolean;
+  status: AppReadinessStatus;
+  message: string;
+  claimCount?: number;
+  error?: PostgrestError | Error;
+}> {
   try {
-    const { error: tableError } = await supabase
+    const { error: tableError, count } = await supabase
       .from('claim_headers')
-      .select('claim_id')
-      .limit(1);
+      .select('id', { count: 'exact', head: true });
 
     if (tableError) {
+      const status = isMissingSchemaError(tableError) ? 'missing_schema' : 'error';
       return {
         ok: false,
-        message: `Could not access claim_headers table: ${tableError.message}`,
+        status,
+        message: getReadinessMessage(status, `Could not access claim_headers table: ${tableError.message}`),
         error: tableError
       };
     }
@@ -103,21 +111,37 @@ export async function testSupabaseConnection(): Promise<{ ok: boolean; message: 
       .limit(1);
 
     if (rpcError) {
+      const status = isMissingRpcError(rpcError) ? 'rpc_missing' : 'error';
+      return {
+        ok: status === 'rpc_missing',
+        status,
+        claimCount: count ?? 0,
+        message: getReadinessMessage(status, `Connected to database, but get_trend_data RPC failed: ${rpcError.message}`),
+        error: rpcError
+      };
+    }
+
+    const claimCount = count ?? 0;
+    if (claimCount === 0) {
       return {
         ok: true,
-        message: `Connected to database, but get_trend_data RPC failed: ${rpcError.message}`,
-        error: rpcError
+        status: 'empty_data',
+        claimCount,
+        message: getReadinessMessage('empty_data')
       };
     }
 
     return {
       ok: true,
-      message: 'Successfully connected to Supabase and verified required resources'
+      status: 'ready',
+      claimCount,
+      message: getReadinessMessage('ready', 'Successfully connected to Supabase and verified required resources')
     };
   } catch (error) {
     return {
       ok: false,
-      message: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
+      status: 'error',
+      message: getReadinessMessage('error', `Unexpected error: ${error instanceof Error ? error.message : String(error)}`),
       error: error instanceof Error ? error : new Error(String(error))
     };
   }

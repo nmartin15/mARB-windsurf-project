@@ -1,35 +1,62 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Scale, Menu, X, AlertCircle } from 'lucide-react';
+import { LogOut, Scale, Menu, X, AlertCircle, Database, Wrench } from 'lucide-react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase, testSupabaseConnection } from '../lib/supabase';
 import { NotificationsPanel } from './NotificationsPanel';
+import type { AppReadinessStatus } from '../utils/appReadiness';
 
 interface DashboardLayoutProps {
-  children: JSX.Element | JSX.Element[];
+  children: React.ReactNode;
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<AppReadinessStatus | 'checking'>('checking');
   const [connectionDetails, setConnectionDetails] = useState<string | null>(null);
+  const [claimCount, setClaimCount] = useState<number | null>(null);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
 
   // Test Supabase connection when component mounts
   useEffect(() => {
     const checkConnection = async () => {
+      setConnectionStatus('checking');
       const result = await testSupabaseConnection();
-      setConnectionStatus(result.ok ? 'connected' : 'error');
+      setConnectionStatus(result.status);
       setConnectionDetails(result.message || null);
-      
-      if (!result.ok) {
+      setClaimCount(result.claimCount ?? null);
+
+      if (!result.ok && result.status !== 'rpc_missing') {
         console.error('Supabase connection error:', result.error);
       }
     };
-    
+
     checkConnection();
   }, []);
+
+  const isBlockingStatus = connectionStatus === 'missing_schema' || connectionStatus === 'error';
+  const isWarningStatus = connectionStatus === 'empty_data' || connectionStatus === 'rpc_missing';
+  const statusColorClass =
+    connectionStatus === 'ready'
+      ? 'bg-green-50 text-green-700'
+      : connectionStatus === 'checking'
+        ? 'bg-gray-50 text-gray-700'
+        : connectionStatus === 'empty_data' || connectionStatus === 'rpc_missing'
+          ? 'bg-amber-50 text-amber-700'
+          : 'bg-red-50 text-red-700';
+  const statusLabel =
+    connectionStatus === 'ready'
+      ? 'Connected to database'
+      : connectionStatus === 'checking'
+        ? 'Checking database connection...'
+        : connectionStatus === 'missing_schema'
+          ? 'Setup required'
+          : connectionStatus === 'empty_data'
+            ? 'Connected (no claims data yet)'
+            : connectionStatus === 'rpc_missing'
+              ? 'Connected (reporting functions missing)'
+              : 'Connection issue';
 
   const handleSignOut = async () => {
     try {
@@ -188,26 +215,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           
           {connectionStatus && (
             <div
-              className={`mt-4 text-sm rounded-md p-2 ${
-                connectionStatus === 'connected'
-                  ? 'bg-green-50 text-green-700'
-                  : 'bg-red-50 text-red-700'
-              }`}
+              className={`mt-4 text-sm rounded-md p-2 ${statusColorClass}`}
             >
               <div className="flex items-center">
-                {connectionStatus === 'connected' ? (
+                {connectionStatus === 'ready' ? (
                   <span className="w-2 h-2 mr-2 rounded-full bg-green-500"></span>
+                ) : connectionStatus === 'checking' ? (
+                  <span className="w-2 h-2 mr-2 rounded-full bg-gray-500 animate-pulse"></span>
                 ) : (
-                  <AlertCircle className="w-4 h-4 mr-1 text-red-500" />
+                  <AlertCircle className="w-4 h-4 mr-1" />
                 )}
-                <span>
-                  {connectionStatus === 'connected' 
-                    ? 'Connected to Supabase' 
-                    : 'Connection issue'}
-                </span>
+                <span>{statusLabel}</span>
               </div>
-              
-              {connectionStatus !== 'connected' && connectionDetails && (
+
+              {connectionStatus === 'empty_data' && claimCount === 0 && (
+                <p className="mt-2 text-xs">Use Reports &gt; Data Import or run the demo journey loader to populate claims.</p>
+              )}
+
+              {connectionStatus !== 'ready' && connectionStatus !== 'checking' && connectionDetails && (
                 <button
                   type="button"
                   className="mt-2 text-xs underline"
@@ -329,24 +354,86 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
         
         <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
-          {/* Connection error alert for mobile */}
-          {connectionStatus === 'error' && (
-            <div className="mb-6 md:hidden bg-red-50 border-l-4 border-red-400 p-4">
+          {/* Connection status alert for mobile */}
+          {(isBlockingStatus || isWarningStatus) && (
+            <div className={`mb-6 md:hidden border-l-4 p-4 ${isBlockingStatus ? 'bg-red-50 border-red-400' : 'bg-amber-50 border-amber-400'}`}>
               <div className="flex">
-                <AlertCircle className="h-5 w-5 text-red-400" />
+                <AlertCircle className={`h-5 w-5 ${isBlockingStatus ? 'text-red-400' : 'text-amber-500'}`} />
                 <div className="ml-3">
-                  <p className="text-sm text-red-700">
-                    Database connection issues. Some features may not work correctly.
+                  <p className={`text-sm ${isBlockingStatus ? 'text-red-700' : 'text-amber-700'}`}>
+                    {connectionStatus === 'missing_schema'
+                      ? 'Setup required: run canonical schema migrations before using the app.'
+                      : connectionStatus === 'empty_data'
+                        ? 'Connected, but no claims are loaded yet.'
+                        : connectionStatus === 'rpc_missing'
+                          ? 'Connected, but required report RPC functions are missing.'
+                          : 'Database connection issues detected.'}
                   </p>
                   {connectionDetails && (
-                    <p className="mt-2 text-xs text-red-700">{connectionDetails}</p>
+                    <p className={`mt-2 text-xs ${isBlockingStatus ? 'text-red-700' : 'text-amber-700'}`}>{connectionDetails}</p>
                   )}
                 </div>
               </div>
             </div>
           )}
-          
-          {children}
+
+          {connectionStatus === 'checking' ? (
+            <div className="bg-white border rounded-lg p-6 flex items-center gap-3" role="status" aria-live="polite">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+              <p className="text-sm text-gray-700">Checking database readiness...</p>
+            </div>
+          ) : connectionStatus === 'missing_schema' ? (
+            <div className="bg-white border border-red-200 rounded-lg p-6">
+              <div className="flex items-start gap-3">
+                <Database className="h-5 w-5 text-red-600 mt-0.5" />
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Database setup required</h2>
+                  <p className="text-sm text-gray-700 mt-2">
+                    This environment is connected, but canonical tables are missing. Apply the migration SQL files below to make UAT usable.
+                  </p>
+                  <ol className="list-decimal list-inside text-sm text-gray-700 mt-3 space-y-1">
+                    <li><code>supabase/migrations/00001_canonical_schema.sql</code></li>
+                    <li><code>supabase/migrations/00002_rpc_functions.sql</code></li>
+                    <li><code>supabase/migrations/20260221_01_add_claim_payment_matching_fields.sql</code></li>
+                    <li><code>supabase/migrations/20260221_02_pipeline_safe_index_hardening.sql</code></li>
+                    <li><code>supabase/migrations/20260221_03_pipeline_preflight_audit.sql</code></li>
+                    <li><code>supabase/migrations/20260221_04_guarded_natural_key_uniqueness.sql</code></li>
+                  </ol>
+                  <p className="text-xs text-gray-600 mt-3">
+                    After running migrations, refresh this page. If you still see issues, expand details in the sidebar status panel.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : connectionStatus === 'error' ? (
+            <div className="bg-white border border-red-200 rounded-lg p-6">
+              <div className="flex items-start gap-3">
+                <Wrench className="h-5 w-5 text-red-600 mt-0.5" />
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Unable to verify database readiness</h2>
+                  <p className="text-sm text-gray-700 mt-2">
+                    Check your Supabase environment variables and connectivity, then refresh.
+                  </p>
+                  {connectionDetails && (
+                    <p className="text-xs text-red-700 mt-3 bg-red-50 border border-red-200 rounded p-2">{connectionDetails}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {isWarningStatus && (
+                <div className="mb-4 bg-amber-50 border-l-4 border-amber-400 p-4">
+                  <p className="text-sm text-amber-800">
+                    {connectionStatus === 'empty_data'
+                      ? 'Database is ready, but no claims are loaded yet. Use Reports > Data Import or run the demo loader to preload UAT data.'
+                      : 'Database is connected, but reporting RPC functions are missing. Some charts may be unavailable until migrations are applied.'}
+                  </p>
+                </div>
+              )}
+              {children}
+            </>
+          )}
         </main>
       </div>
 
