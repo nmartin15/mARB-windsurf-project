@@ -163,7 +163,7 @@ Dashboard and database have been updated for **real EDI data** (not synthetic):
 - All dashboard components filter for real EDI (`file_name IS NOT NULL`).
 - RPCs `get_payment_velocity(period)` and `get_trend_data(period)` use `claim_header_dates` and EDI date format (CCYYMMDD).
 - Normalized tables: `claim_lines`, `claim_diagnoses`, `claim_header_dates`, `claim_line_dates`, `claim_providers`, `claim_provider_taxonomy`.
-- IDs are VARCHAR to match EDI output. See `docs/ALL_DASHBOARD_UPDATES_SUMMARY.md` and `docs/DASHBOARD_COMPONENTS_EDI_COMPATIBILITY.md`.
+- IDs are VARCHAR to match EDI output. See `docs/ARCHITECTURE.md` and `docs/EDI_PARSING_CONTRACT.md` for the current compatibility and schema contract details.
 
 ## Key Concepts
 
