@@ -81,6 +81,36 @@ function isAuthError(error: unknown): error is AuthError {
   return (error as AuthError)?.status !== undefined;
 }
 
+function isRpcSignatureResolutionError(error: PostgrestError | AuthError | Error | null): error is PostgrestError {
+  if (!error || !isPostgrestError(error)) return false;
+  const message = `${error.message} ${error.details ?? ''}`.toLowerCase();
+  return (
+    error.code === 'PGRST202' ||
+    error.code === '42883' ||
+    (message.includes('could not find the function') && message.includes('schema cache'))
+  );
+}
+
+export async function callTrendDataRpc(period: string, orgId: number | null = null) {
+  const primary = await supabase.rpc('get_trend_data', { p_org_id: orgId, p_period: period });
+  if (!primary.error || !isRpcSignatureResolutionError(primary.error)) {
+    return primary;
+  }
+
+  // Backward compatibility for environments that still expose get_trend_data(p_period)
+  return await supabase.rpc('get_trend_data', { p_period: period });
+}
+
+export async function callPaymentVelocityRpc(period: string, orgId: number | null = null) {
+  const primary = await supabase.rpc('get_payment_velocity', { p_org_id: orgId, p_period: period });
+  if (!primary.error || !isRpcSignatureResolutionError(primary.error)) {
+    return primary;
+  }
+
+  // Backward compatibility for environments that still expose get_payment_velocity(p_period)
+  return await supabase.rpc('get_payment_velocity', { p_period: period });
+}
+
 /**
  * Test the Supabase connection by querying the canonical schema.
  */
@@ -106,9 +136,8 @@ export async function testSupabaseConnection(): Promise<{
       };
     }
 
-    const { error: rpcError } = await supabase
-      .rpc('get_trend_data', { p_org_id: null, p_period: '1M' })
-      .limit(1);
+    const rpcProbe = await callTrendDataRpc('1M', null);
+    const rpcError = rpcProbe.error;
 
     if (rpcError) {
       const status = isMissingRpcError(rpcError) ? 'rpc_missing' : 'error';

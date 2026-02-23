@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { format } from 'date-fns';
-import { supabase } from '../lib/supabase';
+import { callTrendDataRpc } from '../lib/supabase';
 
 // Interface for our formatted data that will be used in the chart
 interface FormattedTrendData {
@@ -66,7 +66,7 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
       setError(null);
       setDebugInfo(null);
 
-      const result = await supabase.rpc('get_trend_data', { p_org_id: null, p_period: period });
+      const result = await callTrendDataRpc(period, null);
 
       if (process.env.NODE_ENV === 'development') {
         setDebugInfo(JSON.stringify(result, null, 2));

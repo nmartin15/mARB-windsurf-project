@@ -8,7 +8,7 @@ import { FilingIndicatorChart } from '../components/FilingIndicatorChart';
 import { formatCurrency } from '../utils/format';
 import type { ClaimHeader, PaymentVelocityData, TrendData } from '../types';
 import { FileText, DollarSign, TrendingUp, CheckCircle, Filter } from 'lucide-react';
-import { supabase, safeQuery } from '../lib/supabase';
+import { callPaymentVelocityRpc, callTrendDataRpc, supabase, safeQuery } from '../lib/supabase';
 import { getClaimStatusBadgeClass } from '../utils/claimStatus';
 import { buildDashboardSummary, type DashboardSummary } from '../utils/dashboardData';
 
@@ -59,7 +59,7 @@ export function Dashboard() {
   const fetchVelocityData = useCallback(async () => {
     try {
       const { data: result, error: err } = await safeQuery<PaymentVelocityData[]>(async () =>
-        await supabase.rpc('get_payment_velocity', { p_org_id: null, p_period: selectedPeriod })
+        await callPaymentVelocityRpc(selectedPeriod, null)
       );
       if (err) throw err;
       setVelocityData(result && result.length > 0 ? result : []);
@@ -72,7 +72,7 @@ export function Dashboard() {
   const fetchTrendData = useCallback(async () => {
     try {
       const { data: result, error: err } = await safeQuery<TrendData[]>(async () =>
-        await supabase.rpc('get_trend_data', { p_org_id: null, p_period: selectedPeriod })
+        await callTrendDataRpc(selectedPeriod, null)
       );
       if (err) throw err;
       setTrendData(result && result.length > 0 ? result : []);
