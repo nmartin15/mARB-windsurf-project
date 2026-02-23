@@ -66,7 +66,7 @@ export function TrendChart({ title = 'Claims Trend', period = '3M', height = 300
       setError(null);
       setDebugInfo(null);
 
-      const result = await supabase.rpc('get_trend_data', { p_period: period });
+      const result = await supabase.rpc('get_trend_data', { p_org_id: null, p_period: period });
 
       if (process.env.NODE_ENV === 'development') {
         setDebugInfo(JSON.stringify(result, null, 2));

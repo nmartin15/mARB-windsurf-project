@@ -107,7 +107,7 @@ export async function testSupabaseConnection(): Promise<{
     }
 
     const { error: rpcError } = await supabase
-      .rpc('get_trend_data', { p_period: '1M' })
+      .rpc('get_trend_data', { p_org_id: null, p_period: '1M' })
       .limit(1);
 
     if (rpcError) {

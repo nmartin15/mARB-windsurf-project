@@ -59,7 +59,7 @@ export function Dashboard() {
   const fetchVelocityData = useCallback(async () => {
     try {
       const { data: result, error: err } = await safeQuery<PaymentVelocityData[]>(async () =>
-        await supabase.rpc('get_payment_velocity', { p_period: selectedPeriod })
+        await supabase.rpc('get_payment_velocity', { p_org_id: null, p_period: selectedPeriod })
       );
       if (err) throw err;
       setVelocityData(result && result.length > 0 ? result : []);
@@ -72,7 +72,7 @@ export function Dashboard() {
   const fetchTrendData = useCallback(async () => {
     try {
       const { data: result, error: err } = await safeQuery<TrendData[]>(async () =>
-        await supabase.rpc('get_trend_data', { p_period: selectedPeriod })
+        await supabase.rpc('get_trend_data', { p_org_id: null, p_period: selectedPeriod })
       );
       if (err) throw err;
       setTrendData(result && result.length > 0 ? result : []);
